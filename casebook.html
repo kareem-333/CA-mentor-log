@@ -278,10 +278,18 @@
   .slider-row input[type=range]{ width:150px; accent-color: var(--accent); }
   .slider-row .val{ font-family:"IBM Plex Mono"; font-weight:600; text-align:right; }
 
-  .roster-admin-list{ display:flex; flex-direction:column; gap:10px; max-height: 260px; overflow-y:auto; margin-bottom:18px; padding-right:4px; }
-  .admin-mentor-block{ border:1px solid var(--border); border-radius:9px; padding:10px 12px; }
-  .admin-mentor-block .mname{ font-weight:700; font-size:0.9rem; margin-bottom:4px; }
-  .admin-mentee-chip{ display:inline-block; font-size:0.78rem; color: var(--ink-muted); background: var(--surface-2); border-radius:999px; padding:2px 9px; margin:2px 4px 0 0; }
+  .roster-admin-list{ display:flex; flex-direction:column; gap:14px; max-height: 320px; overflow-y:auto; margin-bottom:18px; padding-right:4px; }
+  .admin-mentor-block{ border:1px solid var(--border); border-radius:9px; padding:6px 12px 8px; }
+  .admin-row{ display:flex; align-items:center; gap:8px; padding:5px 0; }
+  .admin-row-mentor{ padding-top:8px; padding-bottom:7px; border-bottom:1px solid var(--border); margin-bottom:4px; }
+  .roster-name-input{ flex:1; min-width:90px; border:1px solid transparent; background:transparent; padding:5px 7px; border-radius:6px; font: inherit; color:inherit; }
+  .roster-name-input:hover{ border-color: var(--border); }
+  .roster-name-input:focus{ border-color: var(--accent); background: var(--surface); outline:none; }
+  .admin-row-mentor .roster-name-input{ font-weight:700; font-size:0.92rem; }
+  .roster-mentee-count{ font-size:0.76rem; color: var(--ink-faint); white-space:nowrap; }
+  .roster-mentor-select{ width:auto; min-width:112px; flex:0 0 auto; padding:5px 8px; font-size:0.8rem; }
+  .linklike.danger{ color: var(--low); font-weight:600; font-size:0.78rem; }
+  .linklike.danger:disabled{ color: var(--ink-faint); cursor:not-allowed; opacity:0.7; }
   .divider{ border:none; border-top:1px solid var(--border); margin: 18px 0; }
   .hint{ font-size:0.78rem; color: var(--ink-faint); margin-top:-6px; margin-bottom:14px; }
 
@@ -712,7 +720,7 @@
 
   /* ---------------- shared case history rows ---------------- */
 
-  function caseRowsHTML(evals, emptyMsg, tagLabel){
+  function caseRowsHTML(evals, emptyMsg){
     if (evals.length === 0){
       return '<div class="history-empty">'+emptyMsg+'</div>';
     }
@@ -723,7 +731,6 @@
         + '<div class="case-row-head" data-action="toggle-case">'
         + '<span class="date">'+fmtDate(ev.date)+'</span>'
         + '<span class="cname">'+(ev.caseName ? esc(ev.caseName) : '<span class="empty-note">untitled case</span>')+'</span>'
-        + (tagLabel ? '<span class="tag-pill '+(ev.source==='self'?'self':'mentor')+'">'+tagLabel+'</span>' : '')
         + '<span class="badge badge-'+band.cls+'"><span class="dot"></span>'+fmt1(oa)+' &middot; '+band.label+'</span>'
         + '<span class="chevron">▸</span>'
         + '</div>'
@@ -792,10 +799,10 @@
       + chartOrEmptyHTML(evals, 'chartWrap', mentee.name)
       + '</div>'
       + '<div class="section-title">Case history</div>'
-      + caseRowsHTML(evals, 'Nothing here yet &mdash; cases you log will show up as a running scorecard.', null)
+      + caseRowsHTML(evals, 'Nothing here yet &mdash; cases you log will show up as a running scorecard.')
       + '<div class="section-title" style="margin-top:36px;">Self-assessments</div>'
       + '<div class="section-sub">Scores '+esc(mentee.name)+' entered for their own cases &mdash; shown for context, kept separate from your scorecards above.</div>'
-      + caseRowsHTML(selfEvals, esc(mentee.name)+' hasn’t logged any self-assessments yet.', null);
+      + caseRowsHTML(selfEvals, esc(mentee.name)+' hasn’t logged any self-assessments yet.');
   }
 
   /* ---------------- self case log (mentee view) ---------------- */
@@ -821,7 +828,7 @@
       + chartOrEmptyHTML(evals, 'selfChartWrap', 'yourself')
       + '</div>'
       + '<div class="section-title">Your case history</div>'
-      + caseRowsHTML(evals, 'You haven’t logged a case yet. Use “+ Log a case” to score your first one.', null);
+      + caseRowsHTML(evals, 'You haven’t logged a case yet. Use “+ Log a case” to score your first one.');
   }
 
   /* ---------------- chart drawing ---------------- */
@@ -1141,22 +1148,36 @@
     return summary + rows;
   }
 
+  function mentorOptionsHTML(selectedId){
+    return state.mentors.map(function(m){
+      return '<option value="'+esc(m.id)+'"'+(m.id===selectedId?' selected':'')+'>'+esc(m.name)+'</option>';
+    }).join('');
+  }
+
   function adminRosterHTML(){
-    var byMentor = state.mentors.map(function(m){
-      return { mentor:m, mentees: menteesForMentor(m.id) };
-    });
-    var listHTML = byMentor.length === 0
+    var listHTML = state.mentors.length === 0
       ? '<p class="empty-note">No pod leads yet.</p>'
-      : byMentor.map(function(g){
+      : state.mentors.map(function(mentor){
+          var mentees = menteesForMentor(mentor.id);
           return '<div class="admin-mentor-block">'
-            + '<div class="mname">'+esc(g.mentor.name)+' <span class="empty-note">('+g.mentees.length+')</span></div>'
-            + (g.mentees.length
-                ? g.mentees.map(function(mt){ return '<span class="admin-mentee-chip">'+esc(mt.name)+'</span>'; }).join('')
-                : '<span class="empty-note">no mentees yet</span>')
+            + '<div class="admin-row admin-row-mentor">'
+            + '<input type="text" class="roster-name-input" data-action="edit-mentor-name" data-id="'+esc(mentor.id)+'" value="'+esc(mentor.name)+'" aria-label="Pod lead name">'
+            + '<span class="roster-mentee-count">'+mentees.length+' mentee'+(mentees.length===1?'':'s')+'</span>'
+            + '<button type="button" class="linklike danger" data-action="remove-mentor" data-id="'+esc(mentor.id)+'"'+(mentees.length ? ' disabled title="Reassign or remove their mentees first"' : '')+'>remove</button>'
+            + '</div>'
+            + (mentees.length
+                ? mentees.map(function(mt){
+                    return '<div class="admin-row">'
+                      + '<input type="text" class="roster-name-input" data-action="edit-mentee-name" data-id="'+esc(mt.id)+'" value="'+esc(mt.name)+'" aria-label="Mentee name">'
+                      + '<select class="roster-mentor-select" data-action="reassign-mentee" data-id="'+esc(mt.id)+'" aria-label="Pod lead">'+mentorOptionsHTML(mt.mentorId)+'</select>'
+                      + '<button type="button" class="linklike danger" data-action="remove-mentee" data-id="'+esc(mt.id)+'">remove</button>'
+                      + '</div>';
+                  }).join('')
+                : '<div class="empty-note" style="padding:4px 0 2px 8px;">no mentees yet</div>')
             + '</div>';
         }).join('');
 
-    var mentorOptions = state.mentors.map(function(m){ return '<option value="'+esc(m.id)+'">'+esc(m.name)+'</option>'; }).join('');
+    var mentorOptions = mentorOptionsHTML(null);
 
     return '<div class="roster-admin-list">'+listHTML+'</div>'
       + '<hr class="divider">'
@@ -1199,6 +1220,56 @@
     else if (action === 'toggle-case'){
       var row = t.closest('.case-row');
       if (row) row.classList.toggle('open');
+    }
+    else if (action === 'remove-mentor'){
+      if (!state.db) return;
+      var mId = t.getAttribute('data-id');
+      var m = mentorById(mId);
+      if (menteesForMentor(mId).length) return;
+      if (!confirm('Remove '+(m?m.name:'this pod lead')+'? This can\'t be undone.')) return;
+      state.db.collection('mentors').doc(mId).delete().then(render)
+        .catch(function(err){ console.error('remove mentor failed', err); alert('Could not remove this pod lead.'); });
+    }
+    else if (action === 'remove-mentee'){
+      if (!state.db) return;
+      var tId = t.getAttribute('data-id');
+      var mt = menteeById(tId);
+      if (!confirm('Remove '+(mt?mt.name:'this mentee')+'? This can\'t be undone.')) return;
+      state.db.collection('mentees').doc(tId).delete().then(render)
+        .catch(function(err){ console.error('remove mentee failed', err); alert('Could not remove this mentee.'); });
+    }
+  });
+
+  function commitNameEdit(el){
+    if (!state.db) return;
+    var action = el.getAttribute('data-action');
+    var id = el.getAttribute('data-id');
+    var value = el.value.trim();
+    var collection = action === 'edit-mentor-name' ? 'mentors' : 'mentees';
+    var current = collection === 'mentors' ? mentorById(id) : menteeById(id);
+    if (!current) return;
+    if (!value){ el.value = current.name; return; }
+    if (value === current.name) return;
+    state.db.collection(collection).doc(id).update({ name: value })
+      .catch(function(err){ console.error('rename failed', err); alert('Could not save that name.'); el.value = current.name; });
+  }
+
+  document.addEventListener('focusout', function(e){
+    if (e.target.matches && e.target.matches('.roster-name-input')) commitNameEdit(e.target);
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && e.target.matches && e.target.matches('.roster-name-input')){
+      e.preventDefault();
+      e.target.blur();
+    }
+  });
+  document.addEventListener('change', function(e){
+    if (e.target.matches && e.target.matches('[data-action="reassign-mentee"]')){
+      if (!state.db) return;
+      var id = e.target.getAttribute('data-id');
+      var newMentorId = e.target.value;
+      state.db.collection('mentees').doc(id).update({ mentorId: newMentorId })
+        .catch(function(err){ console.error('reassign failed', err); alert('Could not reassign this mentee.'); });
     }
   });
 
