@@ -236,6 +236,8 @@
   .history-empty{ padding: 30px; text-align:center; color: var(--ink-muted); border:1px dashed var(--border); border-radius:12px; }
 
   .case-row{ border:1px solid var(--border); border-radius:12px; background: var(--surface); margin-bottom:10px; overflow:hidden; }
+  .case-row.pending-case{ opacity:0.65; }
+  .case-row.pending-case .case-row-head{ cursor:default; }
   .case-row-head{ display:flex; align-items:center; gap:14px; padding:13px 16px; cursor:pointer; flex-wrap:wrap; }
   .case-row-head:hover{ background: var(--surface-2); }
   .case-row .date{ font-family:"IBM Plex Mono"; font-size:0.82rem; color: var(--ink-muted); min-width:82px; }
@@ -270,13 +272,23 @@
   .admin-tab-btn.active{ color: var(--ink); border-bottom-color: var(--accent); }
   .admin-tab-btn:hover{ color: var(--ink); }
 
-  fieldset{ border:1px solid var(--border); border-radius:10px; padding: 14px 16px 6px; margin: 0 0 14px; }
+  fieldset{ border:1px solid var(--border); border-radius:10px; padding: 14px 16px 14px; margin: 0 0 14px; }
   legend{ font-size:0.8rem; font-weight:700; padding:0 6px; color: var(--ink); display:flex; align-items:center; gap:6px; }
   legend .sw{ width:9px; height:9px; border-radius:50%; }
-  .slider-row{ display:grid; grid-template-columns: 1fr auto 34px; align-items:center; gap:10px; padding: 8px 0; }
-  .slider-row label{ margin:0; font-weight:500; color: var(--ink); font-size:0.88rem; }
-  .slider-row input[type=range]{ width:150px; accent-color: var(--accent); }
-  .slider-row .val{ font-family:"IBM Plex Mono"; font-weight:600; text-align:right; }
+
+  .case-mode-toggle{ display:flex; gap:18px; flex-wrap:wrap; margin: 0 0 16px; font-size:0.85rem; }
+  .case-mode-toggle label{ display:flex; align-items:center; gap:6px; font-weight:500; color: var(--ink); margin:0; }
+
+  .rubric-hint{ font-size:0.78rem; color: var(--ink-faint); margin-bottom:10px; }
+  .cat-slider-row{ display:flex; align-items:center; gap:12px; }
+  .cat-slider-row input[type=range]{ flex:1; accent-color: var(--accent); }
+  .cat-slider-row .val{ font-family:"IBM Plex Mono"; font-weight:600; min-width:28px; text-align:right; }
+  .na-toggle{ display:flex; align-items:center; gap:5px; font-size:0.78rem; font-weight:500; color: var(--ink-muted); white-space:nowrap; margin:0; }
+  .na-toggle input{ margin:0; }
+  .anchor-hint{ font-size:0.72rem; color: var(--ink-faint); font-style:italic; margin-top:8px; }
+  .rationale-row{ margin: 12px 0 2px; padding:10px 12px; background: var(--surface-2); border-radius:8px; }
+  .rationale-row label{ margin-bottom:6px; }
+  .block-msg{ font-size:0.78rem; color: var(--low); margin-right:auto; align-self:center; }
 
   .roster-admin-list{ display:flex; flex-direction:column; gap:14px; max-height: 320px; overflow-y:auto; margin-bottom:18px; padding-right:4px; }
   .admin-mentor-block{ border:1px solid var(--border); border-radius:9px; padding:6px 12px 8px; }
@@ -317,8 +329,8 @@
   @media (max-width: 560px){
     .topbar{ padding: 12px 16px; }
     main{ padding: 22px 16px 60px; }
-    .slider-row{ grid-template-columns: 1fr auto 30px; }
-    .slider-row input[type=range]{ width: 110px; }
+    .cat-slider-row{ flex-wrap:wrap; }
+    .na-toggle{ flex-basis:100%; }
     .admin-mentee-row .meta{ min-width:auto; }
   }
 </style>
@@ -343,43 +355,77 @@
 
   /* ---------------- domain model ---------------- */
 
+  // `metrics` are no longer individually scored — they render as rubric
+  // hint text under each category's single slider. `anchors` are
+  // placeholder criterion text for the 3/5/7/9 scale points; the program
+  // leads write the real wording (see section 7 of the refactor spec).
   var CATEGORIES = [
-    { key:'ps', label:'Problem Solving & Framework', short:'Problem solving', color:'var(--series-ps)', metrics:[
-      {key:'clearProblem', label:'Clear problem statement'},
-      {key:'logicalStructure', label:'Logical structure'},
-      {key:'creativity', label:'Creativity'},
-      {key:'mece', label:'MECE'}
-    ]},
-    { key:'analytical', label:'Analytical Skills', short:'Analytical', color:'var(--series-an)', metrics:[
-      {key:'accuracy', label:'Accuracy with exhibits'},
-      {key:'speed', label:'Speed to insight'},
-      {key:'calculations', label:'Calculations'},
-      {key:'detail', label:'Attention to detail'}
-    ]},
-    { key:'comm', label:'Communication & Delivery', short:'Communication', color:'var(--series-comm)', metrics:[
-      {key:'clarity', label:'Clarity'},
-      {key:'confidence', label:'Confidence & poise'},
-      {key:'adapts', label:'Adapts to feedback'},
-      {key:'guides', label:'Guides you through their thinking'}
-    ]},
-    { key:'biz', label:'Business Judgment & Recommendation', short:'Business judgment', color:'var(--series-biz)', metrics:[
-      {key:'strength', label:'Strength of the answer'},
-      {key:'relevance', label:'Relevance'},
-      {key:'risks', label:'Risks & trade-offs'}
-    ]}
+    { key:'ps', label:'Problem Solving & Framework', short:'Problem solving', color:'var(--series-ps)',
+      metrics:[
+        {key:'clearProblem', label:'Clear problem statement'},
+        {key:'logicalStructure', label:'Logical structure'},
+        {key:'creativity', label:'Creativity'},
+        {key:'mece', label:'MECE'}
+      ],
+      anchors: { 3:'TODO', 5:'TODO', 7:'TODO', 9:'TODO' }
+    },
+    { key:'analytical', label:'Analytical Skills', short:'Analytical', color:'var(--series-an)',
+      metrics:[
+        {key:'accuracy', label:'Accuracy with exhibits'},
+        {key:'speed', label:'Speed to insight'},
+        {key:'calculations', label:'Calculations'},
+        {key:'detail', label:'Attention to detail'}
+      ],
+      anchors: { 3:'TODO', 5:'TODO', 7:'TODO', 9:'TODO' }
+    },
+    { key:'comm', label:'Communication & Delivery', short:'Communication', color:'var(--series-comm)',
+      metrics:[
+        {key:'clarity', label:'Clarity'},
+        {key:'confidence', label:'Confidence & poise'},
+        {key:'adapts', label:'Adapts to feedback'},
+        {key:'guides', label:'Guides you through their thinking'}
+      ],
+      anchors: { 3:'TODO', 5:'TODO', 7:'TODO', 9:'TODO' }
+    },
+    { key:'biz', label:'Business Judgment & Recommendation', short:'Business judgment', color:'var(--series-biz)',
+      metrics:[
+        {key:'strength', label:'Strength of the answer'},
+        {key:'relevance', label:'Relevance'},
+        {key:'risks', label:'Risks & trade-offs'}
+      ],
+      anchors: { 3:'TODO', 5:'TODO', 7:'TODO', 9:'TODO' }
+    }
   ];
 
+  /**
+   * catAvg reads BOTH score shapes: current documents store one number
+   * (or null for "not observed") per category; documents saved before
+   * the 15-metric-to-4-category collapse still store an object of
+   * sub-metric scores, some of which may be missing. Null propagates —
+   * a category nobody scored is unknown, not zero.
+   */
   function catAvg(scores, catKey){
-    var cat = CATEGORIES.filter(function(c){ return c.key===catKey; })[0];
-    var vals = cat.metrics.map(function(m){ return Number(scores[catKey] && scores[catKey][m.key]) || 0; });
-    return vals.reduce(function(a,b){ return a+b; },0) / vals.length;
+    var raw = scores ? scores[catKey] : undefined;
+    if (raw === null || raw === undefined) return null;
+    if (typeof raw === 'number') return raw;
+    if (typeof raw === 'object'){
+      var cat = CATEGORIES.filter(function(c){ return c.key===catKey; })[0];
+      var vals = cat.metrics
+        .map(function(m){ return raw[m.key]; })
+        .filter(function(v){ return v !== null && v !== undefined && v !== ''; })
+        .map(Number);
+      if (!vals.length) return null;
+      return vals.reduce(function(a,b){ return a+b; },0) / vals.length;
+    }
+    return null;
   }
   function overallAvg(scores){
-    var sum = 0;
-    CATEGORIES.forEach(function(c){ sum += catAvg(scores, c.key); });
-    return sum / CATEGORIES.length;
+    var vals = CATEGORIES.map(function(c){ return catAvg(scores, c.key); }).filter(function(v){ return v !== null; });
+    if (!vals.length) return null;
+    return vals.reduce(function(a,b){ return a+b; },0) / vals.length;
   }
   function fmt1(n){ return (Math.round(n*10)/10).toFixed(1); }
+  function fmt1OrDash(n){ return (n === null || n === undefined) ? '&mdash;' : fmt1(n); }
 
   function scoreBand(n){
     if (n >= 7.5) return { cls:'good', label:'Strong' };
@@ -391,6 +437,14 @@
     var b = scoreBand(n);
     return '<span class="badge badge-'+b.cls+'"><span class="dot"></span>'+fmt1(n)+' &middot; '+b.label+'</span>';
   }
+  function isValidRationale(text){
+    var trimmed = (text || '').trim();
+    var nonWhitespace = trimmed.replace(/\s/g, '');
+    if (nonWhitespace.length < 10) return false;
+    if (!/[a-zA-Z0-9]/.test(trimmed)) return false;
+    return true;
+  }
+  function inBand(v){ return v >= 4 && v <= 6; }
 
   var toastTimeout = null;
   function showToast(msg){
@@ -539,6 +593,7 @@
     if (!state.db || !menteeId) { render(); return; }
     unsubSelfEvals = state.db.collection('evaluations')
       .where('menteeId','==',menteeId)
+      .where('source','==','self')
       .orderBy('date','desc')
       .limit(500)
       .onSnapshot(function(snap){
@@ -606,6 +661,36 @@
     if (state.overlay === 'admin') unsubscribeAllEvals();
     state.overlay = null;
     render();
+  }
+
+  /**
+   * Opens the "log a case" modal. Cases this party can pair with (an
+   * existing shared case they haven't scored yet) are fetched BEFORE
+   * the modal renders, in one shot — not as a live subscription, and
+   * not patched in after the fact, so a slow network can never wipe a
+   * scorer's in-progress sliders by re-rendering under them.
+   */
+  function openNewCaseOverlay(menteeId, source){
+    if (!state.db){
+      state.overlay = { type:'newCase', menteeId: menteeId, source: source, availableCases: [] };
+      render();
+      return;
+    }
+    var alreadyScoredCaseIds = (source === 'mentor'
+      ? mentorScored(evalsForMentee(menteeId))
+      : selfScored(state.selfEvaluations)
+    ).map(function(e){ return e.caseId; }).filter(Boolean);
+
+    state.db.collection('cases').where('menteeId','==',menteeId).get().then(function(snap){
+      var all = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+      var eligible = all.filter(function(c){ return alreadyScoredCaseIds.indexOf(c.id) === -1; });
+      state.overlay = { type:'newCase', menteeId: menteeId, source: source, availableCases: eligible };
+      render();
+    }).catch(function(err){
+      console.error('load cases failed', err);
+      state.overlay = { type:'newCase', menteeId: menteeId, source: source, availableCases: [] };
+      render();
+    });
   }
 
   /* ---------------- rendering: shell ---------------- */
@@ -734,7 +819,7 @@
       var evals = mentorScored(evalsForMentee(mt.id)).slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
       var n = evals.length;
       var latest = n ? overallAvg(evals[n-1].scores) : null;
-      var sparkVals = evals.slice(-8).map(function(e){ return overallAvg(e.scores); });
+      var sparkVals = evals.slice(-8).map(function(e){ return overallAvg(e.scores); }).filter(function(v){ return v !== null; });
       var path = sparklinePath(sparkVals, 84, 24);
       var lastDate = n ? fmtDateShort(evals[n-1].date) : null;
       return '<div class="mentee-card" data-action="open-mentee" data-id="'+esc(mt.id)+'">'
@@ -762,36 +847,141 @@
 
   /* ---------------- shared case history rows ---------------- */
 
+  /**
+   * Renders one category's detail block inside an expanded case row.
+   * Branches on the score shape: old documents (saved before the
+   * 15-metric collapse) still carry a sub-metric object and render
+   * their per-metric breakdown; current documents carry a single
+   * category score (or null) plus an optional rationale.
+   */
+  function catDetailHTML(ev, c){
+    var raw = ev.scores ? ev.scores[c.key] : undefined;
+    var avgLabel = fmt1OrDash(catAvg(ev.scores, c.key));
+    var header = '<div class="cat-name"><span class="sw" style="background:'+c.color+'"></span>'+c.short+' <span class="num" style="font-weight:400;color:var(--ink-faint)">('+avgLabel+')</span></div>';
+
+    if (raw !== null && raw !== undefined && typeof raw === 'object'){
+      return '<div class="cat-block">'+header
+        + c.metrics.map(function(m){
+            var v = raw[m.key];
+            return '<div class="metric-line"><span>'+m.label+'</span><b class="num">'+(v===null||v===undefined||v==='' ? '&mdash;' : v)+'</b></div>';
+          }).join('')
+        + '</div>';
+    }
+
+    var rationaleText = ev.rationale && ev.rationale[c.key];
+    return '<div class="cat-block">'+header
+      + (raw === null || raw === undefined ? '<div class="metric-line"><span class="empty-note">Not observed</span></div>' : '')
+      + (rationaleText ? '<div class="case-notes" style="margin-top:8px;padding-top:8px;"><span class="l">Why</span>'+esc(rationaleText)+'</div>' : '')
+      + '</div>';
+  }
+
   function caseRowsHTML(evals, emptyMsg){
     if (evals.length === 0){
       return '<div class="history-empty">'+emptyMsg+'</div>';
     }
     return evals.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; }).map(function(ev, idx){
       var oa = overallAvg(ev.scores);
-      var band = scoreBand(oa);
       return '<div class="case-row" data-case-idx="'+idx+'">'
         + '<div class="case-row-head" data-action="toggle-case">'
         + '<span class="date">'+fmtDate(ev.date)+'</span>'
         + '<span class="cname">'+(ev.caseName ? esc(ev.caseName) : '<span class="empty-note">untitled case</span>')+'</span>'
-        + '<span class="badge badge-'+band.cls+'"><span class="dot"></span>'+fmt1(oa)+' &middot; '+band.label+'</span>'
+        + badgeHTML(oa)
         + '<span class="chevron">▸</span>'
         + '</div>'
         + '<div class="case-row-body">'
         + '<div class="cat-grid">'
-        + CATEGORIES.map(function(c){
-            var avg = catAvg(ev.scores, c.key);
-            return '<div class="cat-block">'
-              + '<div class="cat-name"><span class="sw" style="background:'+c.color+'"></span>'+c.short+' <span class="num" style="font-weight:400;color:var(--ink-faint)">('+fmt1(avg)+')</span></div>'
-              + c.metrics.map(function(m){
-                  return '<div class="metric-line"><span>'+m.label+'</span><b class="num">'+(ev.scores[c.key][m.key])+'</b></div>';
-                }).join('')
-              + '</div>';
-          }).join('')
+        + CATEGORIES.map(function(c){ return catDetailHTML(ev, c); }).join('')
         + '</div>'
         + (ev.notes ? '<div class="case-notes"><span class="l">Notes</span>'+esc(ev.notes)+'</div>' : '')
         + '</div>'
         + '</div>';
     }).join('');
+  }
+
+  function pendingCaseRowHTML(ev){
+    return '<div class="case-row pending-case">'
+      + '<div class="case-row-head">'
+      + '<span class="date">'+fmtDate(ev.date)+'</span>'
+      + '<span class="cname">'+(ev.caseName ? esc(ev.caseName) : '<span class="empty-note">untitled case</span>')+'</span>'
+      + '<span class="badge badge-none"><span class="dot"></span>pending</span>'
+      + '</div>'
+      + '</div>';
+  }
+
+  /**
+   * A case with a caseId is a shared record either party may score.
+   * Until BOTH the mentor's and the mentee's scorecard for that case
+   * exist, the other party's entry stays hidden — blind entry, so
+   * neither score anchors on the other before it's submitted.
+   * Cases without a caseId (all legacy documents, and untied practice
+   * logs) are always visible; there is nothing to pair them against.
+   */
+  function isRevealed(ev, allEvalsForSameMentee){
+    if (!ev.caseId) return true;
+    var counterpartSource = ev.source === 'self' ? 'mentor' : 'self';
+    return allEvalsForSameMentee.some(function(other){
+      return other.caseId === ev.caseId && other.source === counterpartSource;
+    });
+  }
+
+  /**
+   * Per-category and overall delta (self minus mentor) for every case
+   * both parties scored. Cases without a caseId are excluded — there is
+   * no reliable way to match them, so they are left out of the math
+   * rather than fuzzy-matched by name/date.
+   */
+  function calibrationSummary(allEvalsForMentee){
+    var mentorEvals = mentorScored(allEvalsForMentee).filter(function(e){ return e.caseId; });
+    var selfEvals = selfScored(allEvalsForMentee).filter(function(e){ return e.caseId; });
+    var pairs = [];
+    mentorEvals.forEach(function(me){
+      var se = selfEvals.filter(function(e){ return e.caseId === me.caseId; })[0];
+      if (se) pairs.push({ mentor: me, self: se });
+    });
+    if (!pairs.length) return null;
+
+    function avg(arr){ return arr.length ? arr.reduce(function(a,b){ return a+b; },0)/arr.length : null; }
+
+    var overallDeltas = [];
+    var catDeltas = {};
+    CATEGORIES.forEach(function(c){ catDeltas[c.key] = []; });
+    pairs.forEach(function(p){
+      CATEGORIES.forEach(function(c){
+        var mv = catAvg(p.mentor.scores, c.key), sv = catAvg(p.self.scores, c.key);
+        if (mv !== null && sv !== null) catDeltas[c.key].push(sv - mv);
+      });
+      var mo = overallAvg(p.mentor.scores), so = overallAvg(p.self.scores);
+      if (mo !== null && so !== null) overallDeltas.push(so - mo);
+    });
+
+    return {
+      n: pairs.length,
+      overall: avg(overallDeltas),
+      categories: CATEGORIES.map(function(c){ return { key:c.key, short:c.short, delta: avg(catDeltas[c.key]) }; })
+    };
+  }
+
+  function calibDeltaHTML(delta){
+    if (delta === null || delta === undefined) return '<span class="empty-note">&mdash;</span>';
+    var a = Math.abs(delta);
+    var colorVar = a <= 0.5 ? 'var(--good-text)' : (a <= 1.5 ? 'var(--warn)' : 'var(--low)');
+    var sign = delta > 0 ? '+' : '';
+    return '<span class="num" style="font-weight:700;color:'+colorVar+';">'+sign+fmt1(delta)+'</span>';
+  }
+
+  function calibrationCardHTML(allEvalsForMentee){
+    var summary = calibrationSummary(allEvalsForMentee);
+    if (!summary) return '';
+    return '<div class="card" style="padding:16px 20px;margin-bottom:26px;">'
+      + '<div class="card-title">Calibration</div>'
+      + '<div class="card-sub">Self-score minus your score, averaged across '+summary.n+' case'+(summary.n===1?'':'s')+' you both scored.</div>'
+      + '<div class="stat-line">'
+      + '<div class="stat">'+calibDeltaHTML(summary.overall)+'<span class="l">Overall</span></div>'
+      + summary.categories.map(function(c){
+          return '<div class="stat">'+calibDeltaHTML(c.delta)+'<span class="l">'+esc(c.short)+'</span></div>';
+        }).join('')
+      + '</div>'
+      + '</div>';
   }
 
   function statBlockHTML(evals){
@@ -828,7 +1018,16 @@
     }
     var allEvals = evalsForMentee(menteeId);
     var evals = mentorScored(allEvals);
-    var selfEvals = selfScored(allEvals);
+    var selfEvalsAll = selfScored(allEvals);
+    var revealedSelf = selfEvalsAll.filter(function(e){ return isRevealed(e, allEvals); });
+    var pendingSelf = selfEvalsAll.filter(function(e){ return !isRevealed(e, allEvals); });
+
+    var selfSectionHTML;
+    if (selfEvalsAll.length === 0){
+      selfSectionHTML = '<div class="history-empty">'+esc(mentee.name)+' hasn’t logged any self-assessments yet.</div>';
+    } else {
+      selfSectionHTML = (revealedSelf.length ? caseRowsHTML(revealedSelf, '') : '') + pendingSelf.map(pendingCaseRowHTML).join('');
+    }
 
     return '<div class="breadcrumb"><button class="linklike" data-action="back-to-roster">← '+esc(mentor ? mentor.name+'’s pod' : 'pod')+'</button></div>'
       + '<div class="detail-head">'
@@ -840,11 +1039,12 @@
       + '<div class="card-sub">Category averages by case, 1&ndash;10 scale. Mentor-scored cases only.</div>'
       + chartOrEmptyHTML(evals, 'chartWrap', mentee.name)
       + '</div>'
+      + calibrationCardHTML(allEvals)
       + '<div class="section-title">Case history</div>'
       + caseRowsHTML(evals, 'Nothing here yet &mdash; cases you log will show up as a running scorecard.')
       + '<div class="section-title" style="margin-top:36px;">Self-assessments</div>'
-      + '<div class="section-sub">Scores '+esc(mentee.name)+' entered for their own cases &mdash; shown for context, kept separate from your scorecards above.</div>'
-      + caseRowsHTML(selfEvals, esc(mentee.name)+' hasn’t logged any self-assessments yet.');
+      + '<div class="section-sub">Scores '+esc(mentee.name)+' entered for their own cases &mdash; shown for context, kept separate from your scorecards above. A shared case stays pending until you’ve scored it too.</div>'
+      + selfSectionHTML;
   }
 
   /* ---------------- self case log (mentee view) ---------------- */
@@ -949,17 +1149,32 @@
     }
 
     function drawSeries(values, color, width, labelIt){
-      var d = values.map(function(v,i){ return (i===0?'M':'L')+xAt(i).toFixed(1)+','+yAt(v).toFixed(1); }).join(' ');
-      var path = document.createElementNS(svgNS,'path');
-      path.setAttribute('d', d);
-      path.setAttribute('fill','none');
-      path.setAttribute('stroke', color);
-      path.setAttribute('stroke-width', width);
-      path.setAttribute('stroke-linecap','round');
-      path.setAttribute('stroke-linejoin','round');
-      g.appendChild(path);
+      // Null (not-observed) points break the line rather than pulling
+      // it down to a floor of 0 — a gap in the segment, not a dip.
+      var d = '';
+      var drawing = false;
+      values.forEach(function(v,i){
+        if (v === null || v === undefined){ drawing = false; return; }
+        d += (drawing ? 'L' : 'M') + xAt(i).toFixed(1) + ',' + yAt(v).toFixed(1) + ' ';
+        drawing = true;
+      });
+      if (d){
+        var path = document.createElementNS(svgNS,'path');
+        path.setAttribute('d', d.trim());
+        path.setAttribute('fill','none');
+        path.setAttribute('stroke', color);
+        path.setAttribute('stroke-width', width);
+        path.setAttribute('stroke-linecap','round');
+        path.setAttribute('stroke-linejoin','round');
+        g.appendChild(path);
+      }
 
-      var lastI = values.length-1;
+      var lastI = -1;
+      for (var i=values.length-1; i>=0; i--){
+        if (values[i] !== null && values[i] !== undefined){ lastI = i; break; }
+      }
+      if (lastI === -1) return;
+
       var dot = document.createElementNS(svgNS,'circle');
       dot.setAttribute('cx', xAt(lastI)); dot.setAttribute('cy', yAt(values[lastI]));
       dot.setAttribute('r', width+1.5);
@@ -1019,18 +1234,27 @@
       hoverLine.style.opacity = 1;
       hoverLine.setAttribute('x1', xAt(i)); hoverLine.setAttribute('x2', xAt(i));
       allSeries.forEach(function(s, si){
-        hoverDots[si].style.opacity = 1;
-        hoverDots[si].setAttribute('cx', xAt(i));
-        hoverDots[si].setAttribute('cy', yAt(s.values[i]));
-        hoverDots[si].setAttribute('fill', s.color);
+        var v = s.values[i];
+        if (v === null || v === undefined){
+          hoverDots[si].style.opacity = 0;
+        } else {
+          hoverDots[si].style.opacity = 1;
+          hoverDots[si].setAttribute('cx', xAt(i));
+          hoverDots[si].setAttribute('cy', yAt(v));
+          hoverDots[si].setAttribute('fill', s.color);
+        }
       });
       var rows = allSeries.map(function(s){
-        return '<div class="t-row"><span class="sw" style="background:'+s.color+'"></span>'+s.label+': <b class="num">'+fmt1(s.values[i])+'</b></div>';
+        var v = s.values[i];
+        var text = (v === null || v === undefined) ? 'N/A' : fmt1(v);
+        return '<div class="t-row"><span class="sw" style="background:'+s.color+'"></span>'+s.label+': <b class="num">'+text+'</b></div>';
       }).join('');
       tooltip.innerHTML = '<div class="t-date">'+fmtDate(evals[i].date)+'</div>'+rows;
       tooltip.style.opacity = 1;
       tooltip.style.left = (padL + xAt(i)) + 'px';
-      tooltip.style.top = (padT + yAt(allSeries[allSeries.length-1].values[i])) + 'px';
+      var overallHere = allSeries[allSeries.length-1].values[i];
+      var posY = (overallHere === null || overallHere === undefined) ? plotH/2 : yAt(overallHere);
+      tooltip.style.top = (padT + posY) + 'px';
     }
     function hide(){
       hoverLine.style.opacity = 0;
@@ -1072,33 +1296,139 @@
     if (state.overlay === 'admin'){
       root.innerHTML = adminModalHTML();
     } else if (state.overlay.type === 'newCase'){
-      root.innerHTML = newCaseModalHTML(state.overlay.menteeId, state.overlay.source);
+      root.innerHTML = newCaseModalHTML(state.overlay.menteeId, state.overlay.source, state.overlay.availableCases);
     }
     document.body.appendChild(root);
 
     if (state.overlay && state.overlay.type === 'newCase'){
-      root.querySelectorAll('input[type=range]').forEach(function(r){
-        var out = root.querySelector('output[data-for="'+r.id+'"]');
-        r.addEventListener('input', function(){ if (out) out.textContent = r.value; });
-      });
+      wireCaseForm(root);
     }
   }
 
-  function newCaseModalHTML(menteeId, source){
+  function updateRationaleVisibility(catKey){
+    var naEl = document.getElementById('na_'+catKey);
+    var sliderEl = document.getElementById('sc_'+catKey);
+    var wrap = document.getElementById('rationale_'+catKey);
+    var label = document.getElementById('ratLabel_'+catKey);
+    if (!naEl || !sliderEl || !wrap) return;
+    sliderEl.disabled = naEl.checked;
+    if (naEl.checked){
+      wrap.hidden = true;
+    } else {
+      var v = Number(sliderEl.value);
+      if (inBand(v)){
+        wrap.hidden = true;
+      } else {
+        wrap.hidden = false;
+        if (label) label.textContent = 'Why a '+v+'?';
+      }
+    }
+    updateSaveState();
+  }
+
+  function updateSaveState(){
+    var blocking = [];
+    CATEGORIES.forEach(function(c){
+      var naEl = document.getElementById('na_'+c.key);
+      var sliderEl = document.getElementById('sc_'+c.key);
+      if (!naEl || !sliderEl || naEl.checked) return;
+      var v = Number(sliderEl.value);
+      if (inBand(v)) return;
+      var ratEl = document.getElementById('rat_'+c.key);
+      if (!isValidRationale(ratEl ? ratEl.value : '')) blocking.push(c.short);
+    });
+    var saveBtn = document.getElementById('caseSaveBtn');
+    var blockMsg = document.getElementById('caseBlockMsg');
+    if (!saveBtn || !blockMsg) return;
+    if (blocking.length){
+      saveBtn.disabled = true;
+      blockMsg.hidden = false;
+      blockMsg.textContent = 'Add a reason for: ' + blocking.join(', ');
+    } else {
+      saveBtn.disabled = false;
+      blockMsg.hidden = true;
+      blockMsg.textContent = '';
+    }
+  }
+
+  function wireCaseForm(root){
+    CATEGORIES.forEach(function(c){
+      var sliderEl = document.getElementById('sc_'+c.key);
+      var naEl = document.getElementById('na_'+c.key);
+      var valEl = document.getElementById('val_'+c.key);
+      var ratEl = document.getElementById('rat_'+c.key);
+      if (!sliderEl) return;
+      sliderEl.addEventListener('input', function(){
+        valEl.textContent = sliderEl.value;
+        updateRationaleVisibility(c.key);
+      });
+      naEl.addEventListener('change', function(){
+        valEl.textContent = naEl.checked ? 'N/A' : sliderEl.value;
+        updateRationaleVisibility(c.key);
+      });
+      ratEl.addEventListener('input', updateSaveState);
+    });
+
+    var modeRadios = root.querySelectorAll('input[name="caseMode"]');
+    modeRadios.forEach(function(r){
+      r.addEventListener('change', function(){
+        var existingField = document.getElementById('existingCaseField');
+        var newFields = document.getElementById('newCaseFields');
+        var useExisting = r.value === 'existing' && r.checked;
+        if (existingField) existingField.hidden = !useExisting;
+        if (newFields) newFields.hidden = useExisting;
+      });
+    });
+
+    updateSaveState();
+  }
+
+  function newCaseModalHTML(menteeId, source, availableCases){
     var mentee = menteeById(menteeId);
     var today = todayISO();
     var title = source === 'self' ? 'Log your case' : 'Log a case &mdash; '+esc(mentee ? mentee.name : '');
+    var cases = availableCases || [];
+    var defaultExisting = cases.length > 0;
+
+    var caseModeHTML = cases.length === 0 ? '' :
+      '<div class="case-mode-toggle" id="caseModeToggle">'
+      + '<label><input type="radio" name="caseMode" value="existing" checked> Score an existing case ('+cases.length+')</label>'
+      + '<label><input type="radio" name="caseMode" value="new"> Log a new case</label>'
+      + '</div>';
+
+    var existingFieldHTML =
+      '<div class="field" id="existingCaseField"'+(defaultExisting ? '' : ' hidden')+'>'
+      + '<label for="existingCaseSelect">Case</label>'
+      + '<select id="existingCaseSelect">'
+      + cases.map(function(c){
+          return '<option value="'+esc(c.id)+'">'+(c.caseName ? esc(c.caseName) : 'Untitled case')+' &mdash; '+esc(fmtDateShort(c.date))+'</option>';
+        }).join('')
+      + '</select>'
+      + '<p class="hint" style="margin-top:8px;">Scored by the other side already &mdash; your scores stay hidden from each other until you’ve both submitted.</p>'
+      + '</div>';
+
+    var newFieldsHTML =
+      '<div class="field-row" id="newCaseFields"'+(defaultExisting ? ' hidden' : '')+'>'
+      + '<div class="field"><label for="caseDate">Date</label><input type="date" id="caseDate" value="'+today+'"></div>'
+      + '<div class="field"><label for="caseName">Case</label><input type="text" id="caseName" placeholder="e.g. Market entry &mdash; sparkling water"></div>'
+      + '</div>';
+
     var groups = CATEGORIES.map(function(c){
-      return '<fieldset>'
+      var rubric = c.metrics.map(function(m){ return m.label; }).join(' &middot; ');
+      var anchorText = [3,5,7,9].map(function(n){ return n+': '+esc(c.anchors[n]); }).join(' &middot; ');
+      return '<fieldset data-cat="'+c.key+'">'
         + '<legend><span class="sw" style="background:'+c.color+'"></span>'+c.label+'</legend>'
-        + c.metrics.map(function(m){
-            var id = 'sc_'+c.key+'_'+m.key;
-            return '<div class="slider-row">'
-              + '<label for="'+id+'">'+m.label+'</label>'
-              + '<input type="range" id="'+id+'" name="'+id+'" min="1" max="10" step="1" value="5">'
-              + '<output class="val num" data-for="'+id+'">5</output>'
-              + '</div>';
-          }).join('')
+        + '<div class="rubric-hint">'+esc(rubric)+'</div>'
+        + '<div class="cat-slider-row">'
+        + '<input type="range" id="sc_'+c.key+'" min="1" max="10" step="1" value="5">'
+        + '<output class="val num" id="val_'+c.key+'">5</output>'
+        + '<label class="na-toggle"><input type="checkbox" id="na_'+c.key+'"> Not observed</label>'
+        + '</div>'
+        + '<div class="anchor-hint">'+anchorText+'</div>'
+        + '<div class="rationale-row" id="rationale_'+c.key+'" hidden>'
+        + '<label for="rat_'+c.key+'" id="ratLabel_'+c.key+'">Why a 5?</label>'
+        + '<textarea id="rat_'+c.key+'" placeholder="Required for scores outside 4–6 — at least 10 characters."></textarea>'
+        + '</div>'
         + '</fieldset>';
     }).join('');
 
@@ -1106,15 +1436,18 @@
       + '<div class="modal-head" style="border-bottom:1px solid var(--border);"><h2>'+title+'</h2><button class="close-x" data-action="close-overlay">&times;</button></div>'
       + '<form id="caseForm">'
       + '<div class="modal-body" style="padding-top:20px;">'
-      + '<div class="field-row">'
-      + '<div class="field"><label for="caseDate">Date</label><input type="date" id="caseDate" value="'+today+'" required></div>'
-      + '<div class="field"><label for="caseName">Case</label><input type="text" id="caseName" placeholder="e.g. Market entry &mdash; sparkling water"></div>'
-      + '</div>'
-      + '<p class="hint">Score each dimension 1 (needs work) &ndash; 10 (exceptional). Defaults start at 5.</p>'
+      + caseModeHTML
+      + existingFieldHTML
+      + newFieldsHTML
+      + '<p class="hint">Score each category 1 (needs work) &ndash; 10 (exceptional). Scores of 1&ndash;3 or 7&ndash;10 need a short written reason.</p>'
       + groups
       + '<div class="field"><label for="caseNotes">Notes</label><textarea id="caseNotes" placeholder="What stood out? Structure, drivers, recommendation delivery&hellip;"></textarea></div>'
       + '</div>'
-      + '<div class="modal-foot"><button type="button" class="btn" data-action="close-overlay">Cancel</button><button type="submit" class="btn btn-primary">Save scorecard</button></div>'
+      + '<div class="modal-foot">'
+      + '<span id="caseBlockMsg" class="block-msg" hidden></span>'
+      + '<button type="button" class="btn" data-action="close-overlay">Cancel</button>'
+      + '<button type="submit" id="caseSaveBtn" class="btn btn-primary">Save scorecard</button>'
+      + '</div>'
       + '</form>'
       + '</div>';
   }
@@ -1156,7 +1489,8 @@
         var selfCount = selfScored(all).length;
         var latest = evs.length ? overallAvg(evs[evs.length-1].scores) : null;
         var lastDate = evs.length ? evs[evs.length-1].date : null;
-        return { mentee: mt, count: evs.length, selfCount: selfCount, latest: latest, lastDate: lastDate };
+        var calib = calibrationSummary(all);
+        return { mentee: mt, count: evs.length, selfCount: selfCount, latest: latest, lastDate: lastDate, calib: calib };
       });
       var totalPodCases = menteeStats.reduce(function(a,s){ return a+s.count; },0);
       var scored = menteeStats.filter(function(s){ return s.latest !== null; });
@@ -1169,6 +1503,7 @@
               + '<span class="n">'+esc(s.mentee.name)+'</span>'
               + '<span class="meta">'+s.count+' case'+(s.count===1?'':'s')+(s.selfCount ? ' + '+s.selfCount+' self' : '')+'</span>'
               + badgeHTML(s.latest)
+              + (s.calib ? '<span class="meta">' + 'Δ ' + calibDeltaHTML(s.calib.overall) + '</span>' : '')
               + '<span class="meta">'+(s.lastDate ? fmtDateShort(s.lastDate) : '&mdash;')+'</span>'
               + '</div>';
           }).join('')
@@ -1252,8 +1587,7 @@
     else if (action === 'back-to-roster'){ state.selectedMenteeId = null; render(); }
     else if (action === 'new-case'){
       var src = state.role === 'mentee' ? 'self' : 'mentor';
-      state.overlay = { type:'newCase', menteeId: t.getAttribute('data-id'), source: src };
-      render();
+      openNewCaseOverlay(t.getAttribute('data-id'), src);
     }
     else if (action === 'open-admin'){ openAdmin(); }
     else if (action === 'admin-tab'){ state.adminTab = t.getAttribute('data-tab'); render(); }
@@ -1322,31 +1656,56 @@
     if (e.target.id === 'caseForm'){
       e.preventDefault();
       if (!state.db) return;
-      var menteeId = state.overlay.menteeId;
-      var source = state.overlay.source || 'mentor';
+      var overlay = state.overlay;
+      var menteeId = overlay.menteeId;
+      var source = overlay.source || 'mentor';
       var mentee = menteeById(menteeId);
-      var scores = {};
+      var mentorId = mentee ? mentee.mentorId : state.selectedMentorId;
+
+      var scores = {}, rationale = {}, blocked = false;
       CATEGORIES.forEach(function(c){
-        scores[c.key] = {};
-        c.metrics.forEach(function(m){
-          var el = document.getElementById('sc_'+c.key+'_'+m.key);
-          scores[c.key][m.key] = Number(el.value);
-        });
+        var naEl = document.getElementById('na_'+c.key);
+        var sliderEl = document.getElementById('sc_'+c.key);
+        if (naEl.checked){ scores[c.key] = null; return; }
+        var v = Number(sliderEl.value);
+        scores[c.key] = v;
+        if (!inBand(v)){
+          var ratEl = document.getElementById('rat_'+c.key);
+          var text = ratEl.value.trim();
+          if (!isValidRationale(text)) { blocked = true; }
+          else { rationale[c.key] = text; }
+        }
       });
-      var doc = {
-        mentorId: mentee ? mentee.mentorId : state.selectedMentorId,
-        menteeId: menteeId,
-        source: source,
-        date: document.getElementById('caseDate').value || todayISO(),
-        caseName: document.getElementById('caseName').value.trim(),
-        notes: document.getElementById('caseNotes').value.trim(),
-        scores: scores,
-        createdAt: new Date().toISOString()
-      };
-      state.db.collection('evaluations').add(doc).then(function(){
-        state.overlay = null;
-        render();
-      }).catch(function(err){ console.error('save case failed', err); showToast('Could not save this scorecard. Please try again.'); });
+      if (blocked){ updateSaveState(); return; }
+
+      var notes = document.getElementById('caseNotes').value.trim();
+      var existingField = document.getElementById('existingCaseField');
+      var usingExisting = existingField && !existingField.hidden;
+
+      function saveEvaluation(caseId, date, caseName){
+        var doc = {
+          mentorId: mentorId, menteeId: menteeId, source: source, caseId: caseId,
+          date: date, caseName: caseName, notes: notes, scores: scores, rationale: rationale,
+          createdAt: new Date().toISOString()
+        };
+        state.db.collection('evaluations').add(doc).then(function(){
+          state.overlay = null;
+          render();
+        }).catch(function(err){ console.error('save case failed', err); showToast('Could not save this scorecard. Please try again.'); });
+      }
+
+      if (usingExisting){
+        var selectedId = document.getElementById('existingCaseSelect').value;
+        var caseRec = (overlay.availableCases || []).filter(function(c){ return c.id === selectedId; })[0];
+        if (!caseRec){ showToast('Pick a case to score.'); return; }
+        saveEvaluation(caseRec.id, caseRec.date, caseRec.caseName);
+      } else {
+        var date = document.getElementById('caseDate').value || todayISO();
+        var caseName = document.getElementById('caseName').value.trim();
+        state.db.collection('cases').add({ menteeId: menteeId, mentorId: mentorId, caseName: caseName, date: date })
+          .then(function(caseRef){ saveEvaluation(caseRef.id, date, caseName); })
+          .catch(function(err){ console.error('create case failed', err); showToast('Could not create this case. Please try again.'); });
+      }
     }
     else if (e.target.id === 'addMentorForm'){
       e.preventDefault();
