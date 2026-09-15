@@ -1,0 +1,1272 @@
+<title>Casebook</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    color-scheme: light;
+    --bg: #F5F3EC;
+    --surface: #FFFFFF;
+    --surface-2: #EAE6D9;
+    --border: #DBD5C3;
+    --ink: #211D16;
+    --ink-muted: #6E6455;
+    --ink-faint: #9A917E;
+    --accent: #24406B;
+    --accent-ink: #FFFFFF;
+    --accent-soft: #DEE6EF;
+    --good: #0ca30c;
+    --good-text: #006300;
+    --warn: #b9791c;
+    --low: #b23b34;
+    --series-ps: #2a78d6;
+    --series-an: #eb6834;
+    --series-comm: #1baf7a;
+    --series-biz: #eda100;
+    --chart-grid: #e3ddcb;
+    --chart-axis: #c7c0ac;
+    --shadow: 0 1px 2px rgba(33,29,22,0.06), 0 8px 24px -12px rgba(33,29,22,0.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --bg: #14171C;
+      --surface: #1B1F26;
+      --surface-2: #20252D;
+      --border: #313844;
+      --ink: #ECEAE2;
+      --ink-muted: #A6ACB6;
+      --ink-faint: #767E89;
+      --accent: #7DA1D6;
+      --accent-ink: #0E1A2B;
+      --accent-soft: #22344B;
+      --good: #3FAE6E;
+      --good-text: #6FCB94;
+      --warn: #E0A542;
+      --low: #E0685F;
+      --series-ps: #3987e5;
+      --series-an: #d95926;
+      --series-comm: #199e70;
+      --series-biz: #c98500;
+      --chart-grid: #2a3038;
+      --chart-axis: #3a4048;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 28px -14px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --bg: #14171C;
+    --surface: #1B1F26;
+    --surface-2: #20252D;
+    --border: #313844;
+    --ink: #ECEAE2;
+    --ink-muted: #A6ACB6;
+    --ink-faint: #767E89;
+    --accent: #7DA1D6;
+    --accent-ink: #0E1A2B;
+    --accent-soft: #22344B;
+    --good: #3FAE6E;
+    --good-text: #6FCB94;
+    --warn: #E0A542;
+    --low: #E0685F;
+    --series-ps: #3987e5;
+    --series-an: #d95926;
+    --series-comm: #199e70;
+    --series-biz: #c98500;
+    --chart-grid: #2a3038;
+    --chart-axis: #3a4048;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 12px 28px -14px rgba(0,0,0,0.6);
+  }
+
+  *{ box-sizing: border-box; }
+  html, body{ margin:0; }
+  body{
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Public Sans", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  h1,h2,h3{ font-family:"Fraunces", Georgia, serif; font-weight:600; text-wrap:balance; margin:0; }
+  .mono{ font-family:"IBM Plex Mono", ui-monospace, monospace; }
+  .num{ font-variant-numeric: tabular-nums; }
+  a{ color: inherit; }
+  button{ font: inherit; color: inherit; }
+
+  .topbar{
+    position: sticky; top:0; z-index: 20;
+    display:flex; align-items:center; justify-content:space-between;
+    gap: 16px;
+    padding: 14px 24px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .wordmark{ display:flex; align-items:baseline; gap:8px; }
+  .wordmark .mark{ font-family:"Fraunces"; font-weight:700; font-size:1.35rem; letter-spacing:-0.01em; }
+  .wordmark .tag{ font-size:0.72rem; color: var(--ink-faint); letter-spacing:0.03em; }
+  .topbar-right{ display:flex; align-items:center; gap:14px; font-size:0.88rem; }
+  .who{ display:flex; align-items:center; gap:8px; color: var(--ink-muted); }
+  .who b{ color: var(--ink); font-weight:600; }
+  .linklike{ background:none; border:none; padding:0; cursor:pointer; color: var(--accent); font-weight:600; font-size:0.85rem; text-decoration: underline; text-underline-offset:2px; }
+  .linklike:hover{ opacity:0.8; }
+
+  main{ max-width: 980px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    border-radius: 8px; border: 1px solid var(--border);
+    padding: 10px 16px; font-weight:600; font-size:0.9rem;
+    background: var(--surface); cursor:pointer;
+  }
+  .btn:hover{ border-color: var(--ink-faint); }
+  .btn-primary{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn-primary:hover{ opacity:0.92; }
+  .btn-small{ padding:6px 12px; font-size:0.82rem; }
+  .btn:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  input[type=text], input[type=date], select, textarea{
+    font: inherit; color: var(--ink); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 7px; padding: 9px 11px;
+    width:100%;
+  }
+  textarea{ resize: vertical; min-height: 72px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible{
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  label{ font-size:0.82rem; font-weight:600; color: var(--ink-muted); display:block; margin-bottom:5px; }
+  .field{ margin-bottom:14px; }
+  .field-row{ display:flex; gap:14px; flex-wrap:wrap; }
+  .field-row > .field{ flex:1; min-width:160px; }
+
+  /* --- picker --- */
+  .picker-wrap{ max-width: 560px; margin: 10vh auto 0; padding: 0 24px; text-align:center; }
+  .picker-wrap h1{ font-size: 2rem; margin-bottom:6px; }
+  .picker-wrap p{ color: var(--ink-muted); margin: 0 0 28px; }
+  .mentor-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap:10px; }
+  .mentor-chip{
+    padding: 14px 10px; border-radius: 10px; border:1px solid var(--border);
+    background: var(--surface); cursor:pointer; font-weight:600; font-size:0.95rem;
+    box-shadow: var(--shadow);
+  }
+  .mentor-chip:hover{ border-color: var(--accent); color: var(--accent); }
+  .back-link{ margin-bottom:18px; }
+
+  .role-grid{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+  .role-card{ width:220px; padding:22px 18px; border:1px solid var(--border); border-radius:14px; background:var(--surface); cursor:pointer; text-align:left; box-shadow: var(--shadow); }
+  .role-card:hover{ border-color: var(--accent); }
+  .role-card .rt{ font-family:"Fraunces"; font-weight:600; font-size:1.05rem; margin-bottom:5px; }
+  .role-card .rd{ font-size:0.82rem; color: var(--ink-muted); }
+
+  .section-sub{ font-size:0.82rem; color: var(--ink-faint); margin: -6px 0 14px; }
+
+  /* --- roster --- */
+  .roster-head{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom: 22px; flex-wrap:wrap; }
+  .roster-head h1{ font-size:1.7rem; }
+  .roster-head .count{ color: var(--ink-muted); font-size:0.95rem; }
+  .mentee-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(230px,1fr)); gap:14px; }
+  .mentee-card{
+    background: var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding: 16px 16px 14px; box-shadow: var(--shadow); cursor:pointer;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .mentee-card:hover{ border-color: var(--accent); }
+  .mentee-card .name{ font-family:"Fraunces"; font-weight:600; font-size:1.12rem; }
+  .mentee-card .meta{ color: var(--ink-faint); font-size:0.78rem; }
+  .mentee-card .row{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .spark{ display:block; }
+
+  .badge{
+    display:inline-flex; align-items:center; gap:6px;
+    border-radius:999px; padding: 3px 10px 3px 8px; font-size:0.78rem; font-weight:600;
+    border:1px solid transparent; white-space:nowrap;
+  }
+  .badge .dot{ width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+  .badge-good{ background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good-text); }
+  .badge-good .dot{ background: var(--good); }
+  .badge-warn{ background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+  .badge-warn .dot{ background: var(--warn); }
+  .badge-low{ background: color-mix(in srgb, var(--low) 14%, transparent); color: var(--low); }
+  .badge-low .dot{ background: var(--low); }
+  .badge-none{ background: var(--surface-2); color: var(--ink-faint); }
+  .badge-none .dot{ background: var(--ink-faint); }
+
+  .empty-note{ color: var(--ink-faint); font-size:0.82rem; font-style:italic; }
+
+  .add-tile{
+    border:1px dashed var(--border); border-radius:12px; display:flex; align-items:center;
+    justify-content:center; min-height:96px; cursor:pointer; color: var(--ink-muted); font-weight:600;
+  }
+  .add-tile:hover{ border-color: var(--accent); color: var(--accent); }
+
+  /* --- mentee detail --- */
+  .breadcrumb{ margin-bottom:18px; }
+  .detail-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:22px; flex-wrap:wrap; }
+  .detail-head h1{ font-size:1.9rem; margin-bottom:4px; }
+  .detail-head .pod{ color: var(--ink-muted); font-size:0.9rem; }
+  .stat-line{ display:flex; gap:22px; margin-top:10px; flex-wrap:wrap; }
+  .stat{ display:flex; flex-direction:column; gap:2px; }
+  .stat .v{ font-family:"IBM Plex Mono"; font-size:1.5rem; font-weight:600; }
+  .stat .l{ font-size:0.72rem; color: var(--ink-faint); text-transform:uppercase; letter-spacing:0.04em; }
+  .delta{ font-size:0.82rem; font-weight:600; }
+  .delta.up{ color: var(--good-text); }
+  .delta.down{ color: var(--low); }
+  .delta.flat{ color: var(--ink-faint); }
+
+  .card{ background: var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow: var(--shadow); }
+  .chart-card{ padding: 20px 20px 8px; margin-bottom: 26px; }
+  .chart-card .card-title{ font-size:0.95rem; font-weight:600; margin-bottom:2px; }
+  .chart-card .card-sub{ font-size:0.78rem; color: var(--ink-faint); margin-bottom:6px; }
+  .legend{ display:flex; flex-wrap:wrap; gap:14px; margin: 6px 0 10px; }
+  .legend-item{ display:flex; align-items:center; gap:6px; font-size:0.78rem; color: var(--ink-muted); }
+  .legend-swatch{ width:16px; height:3px; border-radius:2px; }
+  .legend-swatch.overall{ height:4px; }
+  .chart-wrap{ position:relative; }
+  .chart-empty{ padding: 40px 10px 30px; text-align:center; color: var(--ink-muted); }
+  .tooltip{
+    position:absolute; pointer-events:none; background: var(--ink); color: var(--bg);
+    border-radius:8px; padding:9px 11px; font-size:0.76rem; line-height:1.5; box-shadow: var(--shadow);
+    transform: translate(-50%, -110%); white-space:nowrap; z-index:5; opacity:0; transition: opacity 0.1s;
+  }
+  :root:not([data-theme="light"]) .tooltip{ background: var(--surface-2); color: var(--ink); border:1px solid var(--border); }
+  :root[data-theme="dark"] .tooltip{ background: var(--surface-2); color: var(--ink); border:1px solid var(--border); }
+  .tooltip .t-date{ font-weight:700; margin-bottom:3px; font-family:"IBM Plex Mono"; }
+  .tooltip .t-row{ display:flex; align-items:center; gap:6px; }
+  .tooltip .t-row .sw{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+  .section-title{ font-size:1.1rem; margin: 30px 0 12px; display:flex; align-items:baseline; justify-content:space-between; }
+  .history-empty{ padding: 30px; text-align:center; color: var(--ink-muted); border:1px dashed var(--border); border-radius:12px; }
+
+  .case-row{ border:1px solid var(--border); border-radius:12px; background: var(--surface); margin-bottom:10px; overflow:hidden; }
+  .case-row-head{ display:flex; align-items:center; gap:14px; padding:13px 16px; cursor:pointer; flex-wrap:wrap; }
+  .case-row-head:hover{ background: var(--surface-2); }
+  .case-row .date{ font-family:"IBM Plex Mono"; font-size:0.82rem; color: var(--ink-muted); min-width:82px; }
+  .case-row .cname{ font-weight:600; flex:1; min-width:120px; }
+  .case-row .chevron{ transition: transform 0.15s; color: var(--ink-faint); margin-left:auto; }
+  .case-row.open .chevron{ transform: rotate(90deg); }
+  .case-row-body{ display:none; padding: 6px 18px 18px; border-top:1px solid var(--border); }
+  .case-row.open .case-row-body{ display:block; }
+  .cat-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap:16px; margin-top:12px; }
+  .cat-block .cat-name{ font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+  .cat-block .sw{ width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .metric-line{ display:flex; justify-content:space-between; font-size:0.85rem; padding:3px 0; color: var(--ink-muted); gap:10px; }
+  .metric-line b{ color: var(--ink); font-family:"IBM Plex Mono"; }
+  .case-notes{ margin-top:14px; padding-top:12px; border-top:1px solid var(--border); font-size:0.88rem; color: var(--ink-muted); white-space:pre-wrap; }
+  .case-notes .l{ display:block; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color: var(--ink-faint); margin-bottom:4px; }
+
+  /* --- overlay/modal --- */
+  .overlay{ position:fixed; inset:0; background: rgba(20,17,10,0.45); z-index:50; display:flex; align-items:flex-start; justify-content:center; padding: 5vh 20px; overflow-y:auto; }
+  :root:not([data-theme="light"]) .overlay{ background: rgba(0,0,0,0.6); }
+  :root[data-theme="dark"] .overlay{ background: rgba(0,0,0,0.6); }
+  .modal{ background: var(--surface); border-radius:16px; width:100%; max-width:640px; box-shadow: var(--shadow); border:1px solid var(--border); }
+  .modal.wide{ max-width: 740px; }
+  .modal-head{ display:flex; align-items:center; justify-content:space-between; padding: 18px 22px; }
+  .modal-head h2{ font-size:1.25rem; }
+  .modal-body{ padding: 8px 22px 24px; }
+  .modal-foot{ display:flex; justify-content:flex-end; gap:10px; padding: 14px 22px; border-top:1px solid var(--border); }
+  .close-x{ background:none; border:none; cursor:pointer; color: var(--ink-faint); font-size:1.3rem; line-height:1; padding:4px; }
+  .close-x:hover{ color: var(--ink); }
+
+  .admin-tabs{ display:flex; gap:22px; padding: 0 22px; border-bottom:1px solid var(--border); margin-bottom:18px; }
+  .admin-tab-btn{ background:none; border:none; padding:0 0 11px; font-weight:600; font-size:0.85rem; color:var(--ink-faint); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .admin-tab-btn.active{ color: var(--ink); border-bottom-color: var(--accent); }
+  .admin-tab-btn:hover{ color: var(--ink); }
+
+  fieldset{ border:1px solid var(--border); border-radius:10px; padding: 14px 16px 6px; margin: 0 0 14px; }
+  legend{ font-size:0.8rem; font-weight:700; padding:0 6px; color: var(--ink); display:flex; align-items:center; gap:6px; }
+  legend .sw{ width:9px; height:9px; border-radius:50%; }
+  .slider-row{ display:grid; grid-template-columns: 1fr auto 34px; align-items:center; gap:10px; padding: 8px 0; }
+  .slider-row label{ margin:0; font-weight:500; color: var(--ink); font-size:0.88rem; }
+  .slider-row input[type=range]{ width:150px; accent-color: var(--accent); }
+  .slider-row .val{ font-family:"IBM Plex Mono"; font-weight:600; text-align:right; }
+
+  .roster-admin-list{ display:flex; flex-direction:column; gap:10px; max-height: 260px; overflow-y:auto; margin-bottom:18px; padding-right:4px; }
+  .admin-mentor-block{ border:1px solid var(--border); border-radius:9px; padding:10px 12px; }
+  .admin-mentor-block .mname{ font-weight:700; font-size:0.9rem; margin-bottom:4px; }
+  .admin-mentee-chip{ display:inline-block; font-size:0.78rem; color: var(--ink-muted); background: var(--surface-2); border-radius:999px; padding:2px 9px; margin:2px 4px 0 0; }
+  .divider{ border:none; border-top:1px solid var(--border); margin: 18px 0; }
+  .hint{ font-size:0.78rem; color: var(--ink-faint); margin-top:-6px; margin-bottom:14px; }
+
+  .cohort-summary{ display:flex; gap:28px; margin-bottom:18px; flex-wrap:wrap; }
+
+  .admin-mentee-row{ display:flex; align-items:center; gap:12px; padding:7px 0; font-size:0.85rem; border-bottom:1px solid var(--border); }
+  .admin-mentee-row:last-child{ border-bottom:none; }
+  .admin-mentee-row .n{ font-weight:600; flex:1; min-width:100px; }
+  .admin-mentee-row .meta{ color: var(--ink-faint); font-size:0.78rem; min-width:64px; text-align:right; }
+
+  .conn-banner{ max-width:560px; margin: 14vh auto 0; padding:24px; text-align:center; color: var(--ink-muted); }
+
+  @media (max-width: 560px){
+    .topbar{ padding: 12px 16px; }
+    main{ padding: 22px 16px 60px; }
+    .slider-row{ grid-template-columns: 1fr auto 30px; }
+    .slider-row input[type=range]{ width: 110px; }
+    .admin-mentee-row .meta{ min-width:auto; }
+  }
+</style>
+
+<div id="topbar" class="topbar" hidden>
+  <div class="wordmark">
+    <span class="mark">Casebook</span>
+    <span class="tag">case interview coaching, scored</span>
+  </div>
+  <div class="topbar-right">
+    <span id="whoBox" class="who" hidden><span id="whoLabel"></span> <b id="whoName"></b></span>
+    <button class="linklike" id="switchBtn" hidden>switch</button>
+    <button class="linklike" id="adminBtn">admin</button>
+  </div>
+</div>
+
+<main id="app"></main>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- domain model ---------------- */
+
+  var CATEGORIES = [
+    { key:'ps', label:'Problem Solving & Framework', short:'Problem solving', color:'var(--series-ps)', metrics:[
+      {key:'clearProblem', label:'Clear problem statement'},
+      {key:'logicalStructure', label:'Logical structure'},
+      {key:'creativity', label:'Creativity'},
+      {key:'mece', label:'MECE'}
+    ]},
+    { key:'analytical', label:'Analytical Skills', short:'Analytical', color:'var(--series-an)', metrics:[
+      {key:'accuracy', label:'Accuracy with exhibits'},
+      {key:'speed', label:'Speed to insight'},
+      {key:'calculations', label:'Calculations'},
+      {key:'detail', label:'Attention to detail'}
+    ]},
+    { key:'comm', label:'Communication & Delivery', short:'Communication', color:'var(--series-comm)', metrics:[
+      {key:'clarity', label:'Clarity'},
+      {key:'confidence', label:'Confidence & poise'},
+      {key:'adapts', label:'Adapts to feedback'},
+      {key:'guides', label:'Guides you through their thinking'}
+    ]},
+    { key:'biz', label:'Business Judgment & Recommendation', short:'Business judgment', color:'var(--series-biz)', metrics:[
+      {key:'strength', label:'Strength of the answer'},
+      {key:'relevance', label:'Relevance'},
+      {key:'risks', label:'Risks & trade-offs'}
+    ]}
+  ];
+
+  function catAvg(scores, catKey){
+    var cat = CATEGORIES.filter(function(c){ return c.key===catKey; })[0];
+    var vals = cat.metrics.map(function(m){ return Number(scores[catKey] && scores[catKey][m.key]) || 0; });
+    return vals.reduce(function(a,b){ return a+b; },0) / vals.length;
+  }
+  function overallAvg(scores){
+    var sum = 0;
+    CATEGORIES.forEach(function(c){ sum += catAvg(scores, c.key); });
+    return sum / CATEGORIES.length;
+  }
+  function fmt1(n){ return (Math.round(n*10)/10).toFixed(1); }
+
+  function scoreBand(n){
+    if (n >= 7.5) return { cls:'good', label:'Strong' };
+    if (n >= 5.5) return { cls:'warn', label:'Solid' };
+    return { cls:'low', label:'Developing' };
+  }
+  function badgeHTML(n){
+    if (n === null || n === undefined) return '<span class="badge badge-none"><span class="dot"></span>&mdash;</span>';
+    var b = scoreBand(n);
+    return '<span class="badge badge-'+b.cls+'"><span class="dot"></span>'+fmt1(n)+' &middot; '+b.label+'</span>';
+  }
+
+  function esc(s){
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+
+  function fmtDate(iso){
+    var parts = iso.split('-');
+    var d = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+    return d.toLocaleDateString(undefined, { month:'short', day:'numeric', year: 'numeric' });
+  }
+  function fmtDateShort(iso){
+    var parts = iso.split('-');
+    var d = new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
+    return d.toLocaleDateString(undefined, { month:'short', day:'numeric' });
+  }
+  function todayISO(){
+    var d = new Date();
+    var m = String(d.getMonth()+1).padStart(2,'0');
+    var day = String(d.getDate()).padStart(2,'0');
+    return d.getFullYear()+'-'+m+'-'+day;
+  }
+
+  /* ---------------- state ---------------- */
+
+  var state = {
+    db: undefined, // undefined = not yet resolved, null = unavailable
+    role: null, // null | 'mentor' | 'mentee'
+    mentors: [],
+    mentees: [],
+    evaluations: [], // mentor-scoped (mentor + their mentees' self-logs)
+    selfEvaluations: [], // one mentee's own docs, when role === 'mentee'
+    allEvaluations: [], // whole cohort, loaded only while admin overlay is open
+    selectedMentorId: null,
+    selectedMenteeId: null,
+    overlay: null, // null | 'admin' | {type:'newCase', menteeId, source}
+    adminTab: 'overview'
+  };
+
+  var unsubMentors = null, unsubMentees = null, unsubEvals = null, unsubSelfEvals = null, unsubAllEvals = null;
+
+  try {
+    var savedRole = localStorage.getItem('casebook.role');
+    if (savedRole === 'mentor' || savedRole === 'mentee') state.role = savedRole;
+    if (state.role === 'mentor'){
+      var savedMentor = localStorage.getItem('casebook.mentorId');
+      if (savedMentor) state.selectedMentorId = savedMentor;
+    } else if (state.role === 'mentee'){
+      var savedMentee = localStorage.getItem('casebook.menteeId');
+      if (savedMentee) state.selectedMenteeId = savedMentee;
+    }
+  } catch(e){}
+
+  var appEl = document.getElementById('app');
+  var topbarEl = document.getElementById('topbar');
+  var whoBox = document.getElementById('whoBox');
+  var whoLabel = document.getElementById('whoLabel');
+  var whoName = document.getElementById('whoName');
+  var switchBtn = document.getElementById('switchBtn');
+  var adminBtn = document.getElementById('adminBtn');
+
+  function mentorById(id){ return state.mentors.filter(function(m){ return m.id===id; })[0]; }
+  function menteeById(id){ return state.mentees.filter(function(m){ return m.id===id; })[0]; }
+  function menteesForMentor(mentorId){ return state.mentees.filter(function(m){ return m.mentorId===mentorId; }); }
+  function evalsForMentee(menteeId){ return state.evaluations.filter(function(e){ return e.menteeId===menteeId; }); }
+  function allEvalsForMentee(menteeId){ return state.allEvaluations.filter(function(e){ return e.menteeId===menteeId; }); }
+  function mentorScored(evals){ return evals.filter(function(e){ return (e.source||'mentor')==='mentor'; }); }
+  function selfScored(evals){ return evals.filter(function(e){ return e.source==='self'; }); }
+
+  /* ---------------- db wiring ---------------- */
+
+  function init(){
+    if (!window.claude || !window.claude.use){
+      state.db = null;
+      render();
+      return;
+    }
+    window.claude.use('db').then(function(db){
+      state.db = db;
+      if (!db){ render(); return; }
+
+      unsubMentors = db.collection('mentors').orderBy('name').onSnapshot(function(snap){
+        state.mentors = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+        render();
+      }, function(err){ console.error('mentors sub', err); });
+
+      unsubMentees = db.collection('mentees').orderBy('name').onSnapshot(function(snap){
+        state.mentees = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+        render();
+      }, function(err){ console.error('mentees sub', err); });
+
+      if (state.role === 'mentor' && state.selectedMentorId) subscribeEvals(state.selectedMentorId);
+      if (state.role === 'mentee' && state.selectedMenteeId) subscribeSelfEvals(state.selectedMenteeId);
+      render();
+    }).catch(function(){ state.db = null; render(); });
+  }
+
+  function subscribeEvals(mentorId){
+    if (unsubEvals) { unsubEvals(); unsubEvals = null; }
+    state.evaluations = [];
+    if (!state.db || !mentorId) { render(); return; }
+    unsubEvals = state.db.collection('evaluations')
+      .where('mentorId','==',mentorId)
+      .orderBy('date','desc')
+      .limit(1000)
+      .onSnapshot(function(snap){
+        state.evaluations = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+        render();
+      }, function(err){ console.error('evals sub', err); });
+  }
+
+  function subscribeSelfEvals(menteeId){
+    if (unsubSelfEvals) { unsubSelfEvals(); unsubSelfEvals = null; }
+    state.selfEvaluations = [];
+    if (!state.db || !menteeId) { render(); return; }
+    unsubSelfEvals = state.db.collection('evaluations')
+      .where('menteeId','==',menteeId)
+      .orderBy('date','desc')
+      .limit(500)
+      .onSnapshot(function(snap){
+        state.selfEvaluations = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+        render();
+      }, function(err){ console.error('self-evals sub', err); });
+  }
+
+  function subscribeAllEvals(){
+    if (unsubAllEvals || !state.db) return;
+    unsubAllEvals = state.db.collection('evaluations')
+      .orderBy('date','desc')
+      .limit(2000)
+      .onSnapshot(function(snap){
+        state.allEvaluations = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
+        render();
+      }, function(err){ console.error('all-evals sub', err); });
+  }
+  function unsubscribeAllEvals(){
+    if (unsubAllEvals){ unsubAllEvals(); unsubAllEvals = null; }
+    state.allEvaluations = [];
+  }
+
+  function selectRole(role){
+    state.role = role;
+    state.selectedMentorId = null;
+    state.selectedMenteeId = null;
+    try { localStorage.setItem('casebook.role', role); } catch(e){}
+    render();
+  }
+  function selectMentor(id){
+    state.selectedMentorId = id;
+    state.selectedMenteeId = null;
+    try { localStorage.setItem('casebook.mentorId', id); } catch(e){}
+    subscribeEvals(id);
+    render();
+  }
+  function selectMenteeSelf(id){
+    state.selectedMenteeId = id;
+    try { localStorage.setItem('casebook.menteeId', id); } catch(e){}
+    subscribeSelfEvals(id);
+    render();
+  }
+  function switchAll(){
+    state.role = null;
+    state.selectedMentorId = null;
+    state.selectedMenteeId = null;
+    if (unsubEvals){ unsubEvals(); unsubEvals = null; }
+    state.evaluations = [];
+    if (unsubSelfEvals){ unsubSelfEvals(); unsubSelfEvals = null; }
+    state.selfEvaluations = [];
+    try {
+      localStorage.removeItem('casebook.role');
+      localStorage.removeItem('casebook.mentorId');
+      localStorage.removeItem('casebook.menteeId');
+    } catch(e){}
+    render();
+  }
+  function openAdmin(){
+    state.overlay = 'admin';
+    subscribeAllEvals();
+    render();
+  }
+  function closeOverlay(){
+    if (state.overlay === 'admin') unsubscribeAllEvals();
+    state.overlay = null;
+    render();
+  }
+
+  /* ---------------- rendering: shell ---------------- */
+
+  function render(){
+    var mentor = state.selectedMentorId ? mentorById(state.selectedMentorId) : null;
+    var selfMentee = (state.role === 'mentee' && state.selectedMenteeId) ? menteeById(state.selectedMenteeId) : null;
+    topbarEl.hidden = state.db === null;
+    adminBtn.hidden = state.role === 'mentee';
+    if (mentor){
+      whoBox.hidden = false; switchBtn.hidden = false;
+      whoLabel.textContent = 'Pod lead:'; whoName.textContent = mentor.name;
+    } else if (selfMentee){
+      whoBox.hidden = false; switchBtn.hidden = false;
+      whoLabel.textContent = 'Mentee:'; whoName.textContent = selfMentee.name;
+    } else {
+      whoBox.hidden = true; switchBtn.hidden = true;
+    }
+
+    if (state.db === undefined){
+      appEl.innerHTML = '<div class="conn-banner">Connecting&hellip;</div>';
+    } else if (state.db === null){
+      appEl.innerHTML =
+        '<div class="conn-banner">'
+        + '<h1 style="font-size:1.4rem;margin-bottom:10px;">Casebook needs to run inside Claude</h1>'
+        + '<p>This page stores mentor and mentee data in the artifact database, which is only available when it\'s opened as a Claude artifact by a signed-in teammate. Open this page from its claude.ai link to use it.</p>'
+        + '</div>';
+    } else if (!state.role){
+      appEl.innerHTML = roleSelectHTML();
+    } else if (state.role === 'mentor'){
+      if (!state.selectedMentorId) appEl.innerHTML = mentorPickerHTML();
+      else if (state.selectedMenteeId) appEl.innerHTML = menteeDetailHTML(state.selectedMenteeId);
+      else appEl.innerHTML = rosterHTML(state.selectedMentorId);
+    } else {
+      if (!state.selectedMenteeId) appEl.innerHTML = menteePickerHTML();
+      else appEl.innerHTML = selfCaseLogHTML(state.selectedMenteeId);
+    }
+
+    renderOverlay();
+
+    if (state.db && state.overlay === null){
+      if (state.role === 'mentor' && state.selectedMenteeId){
+        drawChart(mentorScored(evalsForMentee(state.selectedMenteeId)), 'chartWrap');
+      } else if (state.role === 'mentee' && state.selectedMenteeId){
+        drawChart(selfScored(state.selfEvaluations), 'selfChartWrap');
+      }
+    }
+  }
+
+  /* ---------------- role select & mentor picker ---------------- */
+
+  function roleSelectHTML(){
+    return '<div class="picker-wrap">'
+      + '<h1>Casebook</h1>'
+      + '<p>Case interview coaching, scored.</p>'
+      + '<div class="role-grid">'
+      + '<button class="role-card" data-action="select-role" data-role="mentor"><div class="rt">I’m a pod lead</div><div class="rd">Score your mentees’ cases and track their progress over time.</div></button>'
+      + '<button class="role-card" data-action="select-role" data-role="mentee"><div class="rt">I’m a mentee</div><div class="rd">Log your own cases and watch your scores trend over time.</div></button>'
+      + '</div>'
+      + '</div>';
+  }
+
+  function mentorPickerHTML(){
+    var back = '<p class="back-link"><button class="linklike" data-action="switch-all">← choose a different role</button></p>';
+    if (state.mentors.length === 0){
+      return '<div class="picker-wrap">'
+        + back
+        + '<h1>Welcome to Casebook</h1>'
+        + '<p>No pod leads yet &mdash; add the first mentor to get started.</p>'
+        + '<button class="btn btn-primary" data-action="open-admin">Open admin</button>'
+        + '</div>';
+    }
+    return '<div class="picker-wrap">'
+      + back
+      + '<h1>Who’s scoring today?</h1>'
+      + '<p>Pick your name to open your pod.</p>'
+      + '<div class="mentor-grid">'
+      + state.mentors.map(function(m){
+          return '<button class="mentor-chip" data-action="select-mentor" data-id="'+esc(m.id)+'">'+esc(m.name)+'</button>';
+        }).join('')
+      + '</div>'
+      + '<p style="margin-top:26px;"><button class="linklike" data-action="open-admin">+ add a pod lead</button></p>'
+      + '</div>';
+  }
+
+  function menteePickerHTML(){
+    var back = '<p class="back-link"><button class="linklike" data-action="switch-all">← choose a different role</button></p>';
+    var list = state.mentees.slice().sort(function(a,b){ return a.name.localeCompare(b.name); });
+    if (list.length === 0){
+      return '<div class="picker-wrap">'
+        + back
+        + '<h1>No mentees on the roster yet</h1>'
+        + '<p>Ask your pod lead to add you under Manage roster, then come back here.</p>'
+        + '</div>';
+    }
+    return '<div class="picker-wrap">'
+      + back
+      + '<h1>Find your name</h1>'
+      + '<p>Pick yourself to log and track your own cases.</p>'
+      + '<div class="mentor-grid">'
+      + list.map(function(m){
+          return '<button class="mentor-chip" data-action="select-mentee-self" data-id="'+esc(m.id)+'">'+esc(m.name)+'</button>';
+        }).join('')
+      + '</div>'
+      + '</div>';
+  }
+
+  /* ---------------- roster ---------------- */
+
+  function sparklinePath(vals, w, h){
+    if (vals.length < 2) return null;
+    var min = 1, max = 10;
+    var stepX = w / (vals.length - 1);
+    var pts = vals.map(function(v,i){
+      var x = i*stepX;
+      var y = h - ((v-min)/(max-min))*h;
+      return [x,y];
+    });
+    return pts.map(function(p,i){ return (i===0?'M':'L')+p[0].toFixed(1)+','+p[1].toFixed(1); }).join(' ');
+  }
+
+  function rosterHTML(mentorId){
+    var mentor = mentorById(mentorId);
+    var mentees = menteesForMentor(mentorId);
+    var cards = mentees.map(function(mt){
+      var evals = mentorScored(evalsForMentee(mt.id)).slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+      var n = evals.length;
+      var latest = n ? overallAvg(evals[n-1].scores) : null;
+      var sparkVals = evals.slice(-8).map(function(e){ return overallAvg(e.scores); });
+      var path = sparklinePath(sparkVals, 84, 24);
+      var lastDate = n ? fmtDateShort(evals[n-1].date) : null;
+      return '<div class="mentee-card" data-action="open-mentee" data-id="'+esc(mt.id)+'">'
+        + '<div class="row"><span class="name">'+esc(mt.name)+'</span>'
+        + (latest!==null ? '<span class="badge badge-'+scoreBand(latest).cls+'"><span class="dot"></span>'+fmt1(latest)+'</span>' : '<span class="badge badge-none"><span class="dot"></span>&mdash;</span>')
+        + '</div>'
+        + '<div class="row">'
+        + (path
+            ? '<svg class="spark" width="84" height="24" viewBox="0 0 84 24"><path d="'+path+'" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+            : '<span class="empty-note">'+(n ? 'one case so far' : 'no cases logged')+'</span>')
+        + '<span class="meta">'+n+' case'+(n===1?'':'s')+(lastDate ? ' &middot; last '+lastDate : '')+'</span>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+
+    return '<div class="roster-head">'
+      + '<div><h1>'+esc(mentor ? mentor.name : '')+'’s pod</h1></div>'
+      + '<span class="count">'+mentees.length+' mentee'+(mentees.length===1?'':'s')+'</span>'
+      + '</div>'
+      + '<div class="mentee-grid">'
+      + cards
+      + '<button class="add-tile" data-action="open-admin">+ add mentee</button>'
+      + '</div>';
+  }
+
+  /* ---------------- shared case history rows ---------------- */
+
+  function caseRowsHTML(evals, emptyMsg, tagLabel){
+    if (evals.length === 0){
+      return '<div class="history-empty">'+emptyMsg+'</div>';
+    }
+    return evals.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; }).map(function(ev, idx){
+      var oa = overallAvg(ev.scores);
+      var band = scoreBand(oa);
+      return '<div class="case-row" data-case-idx="'+idx+'">'
+        + '<div class="case-row-head" data-action="toggle-case">'
+        + '<span class="date">'+fmtDate(ev.date)+'</span>'
+        + '<span class="cname">'+(ev.caseName ? esc(ev.caseName) : '<span class="empty-note">untitled case</span>')+'</span>'
+        + (tagLabel ? '<span class="tag-pill '+(ev.source==='self'?'self':'mentor')+'">'+tagLabel+'</span>' : '')
+        + '<span class="badge badge-'+band.cls+'"><span class="dot"></span>'+fmt1(oa)+' &middot; '+band.label+'</span>'
+        + '<span class="chevron">▸</span>'
+        + '</div>'
+        + '<div class="case-row-body">'
+        + '<div class="cat-grid">'
+        + CATEGORIES.map(function(c){
+            var avg = catAvg(ev.scores, c.key);
+            return '<div class="cat-block">'
+              + '<div class="cat-name"><span class="sw" style="background:'+c.color+'"></span>'+c.short+' <span class="num" style="font-weight:400;color:var(--ink-faint)">('+fmt1(avg)+')</span></div>'
+              + c.metrics.map(function(m){
+                  return '<div class="metric-line"><span>'+m.label+'</span><b class="num">'+(ev.scores[c.key][m.key])+'</b></div>';
+                }).join('')
+              + '</div>';
+          }).join('')
+        + '</div>'
+        + (ev.notes ? '<div class="case-notes"><span class="l">Notes</span>'+esc(ev.notes)+'</div>' : '')
+        + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  function statBlockHTML(evals){
+    var sorted = evals.slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+    var n = sorted.length;
+    var latest = n ? overallAvg(sorted[n-1].scores) : null;
+    var prev = n>1 ? overallAvg(sorted[n-2].scores) : null;
+    var delta = (latest!==null && prev!==null) ? latest - prev : null;
+    return '<div class="stat-line">'
+      + '<div class="stat"><span class="v num">'+n+'</span><span class="l">Cases logged</span></div>'
+      + (latest!==null ? '<div class="stat"><span class="v num">'+fmt1(latest)+'</span><span class="l">Latest overall</span></div>' : '')
+      + (delta!==null ? '<div class="stat"><span class="v delta '+(delta>0.05?'up':delta<-0.05?'down':'flat')+'">'+(delta>0.05?'▲ +':delta<-0.05?'▼ ':'– ')+fmt1(Math.abs(delta))+'</span><span class="l">vs previous</span></div>' : '')
+      + '</div>';
+  }
+
+  function chartOrEmptyHTML(evals, wrapId, emptyName){
+    if (evals.length === 0){
+      return '<div class="chart-empty">No cases logged yet for '+esc(emptyName)+'. Log the first one to start tracking progress.</div>';
+    }
+    return '<div class="legend">'
+      + CATEGORIES.map(function(c){ return '<span class="legend-item"><span class="legend-swatch" style="background:'+c.color+'"></span>'+c.short+'</span>'; }).join('')
+      + '<span class="legend-item"><span class="legend-swatch overall" style="background:var(--accent)"></span>Overall</span>'
+      + '</div>'
+      + '<div class="chart-wrap" id="'+wrapId+'"></div>';
+  }
+
+  /* ---------------- mentee detail (mentor view) ---------------- */
+
+  function menteeDetailHTML(menteeId){
+    var mentee = menteeById(menteeId);
+    var mentor = mentee ? mentorById(mentee.mentorId) : null;
+    if (!mentee){
+      return '<p>Mentee not found.</p>';
+    }
+    var allEvals = evalsForMentee(menteeId);
+    var evals = mentorScored(allEvals);
+    var selfEvals = selfScored(allEvals);
+
+    return '<div class="breadcrumb"><button class="linklike" data-action="back-to-roster">← '+esc(mentor ? mentor.name+'’s pod' : 'pod')+'</button></div>'
+      + '<div class="detail-head">'
+      + '<div><h1>'+esc(mentee.name)+'</h1><div class="pod">mentee of '+esc(mentor ? mentor.name : '—')+'</div>'+statBlockHTML(evals)+'</div>'
+      + '<button class="btn btn-primary" data-action="new-case" data-id="'+esc(menteeId)+'">+ Log a case</button>'
+      + '</div>'
+      + '<div class="card chart-card">'
+      + '<div class="card-title">Performance over time</div>'
+      + '<div class="card-sub">Category averages by case, 1&ndash;10 scale. Mentor-scored cases only.</div>'
+      + chartOrEmptyHTML(evals, 'chartWrap', mentee.name)
+      + '</div>'
+      + '<div class="section-title">Case history</div>'
+      + caseRowsHTML(evals, 'Nothing here yet &mdash; cases you log will show up as a running scorecard.', null)
+      + '<div class="section-title" style="margin-top:36px;">Self-assessments</div>'
+      + '<div class="section-sub">Scores '+esc(mentee.name)+' entered for their own cases &mdash; shown for context, kept separate from your scorecards above.</div>'
+      + caseRowsHTML(selfEvals, esc(mentee.name)+' hasn’t logged any self-assessments yet.', null);
+  }
+
+  /* ---------------- self case log (mentee view) ---------------- */
+
+  function selfCaseLogHTML(menteeId){
+    var mentee = menteeById(menteeId);
+    if (!mentee){
+      return '<p class="empty-note">We couldn’t find your profile. Ask your pod lead to check the roster.</p>';
+    }
+    var mentor = mentorById(mentee.mentorId);
+    var evals = selfScored(state.selfEvaluations);
+
+    return '<div class="detail-head">'
+      + '<div><h1>'+esc(mentee.name)+'’s cases</h1>'
+      + (mentor ? '<div class="pod">coached by '+esc(mentor.name)+'</div>' : '')
+      + statBlockHTML(evals)
+      + '</div>'
+      + '<button class="btn btn-primary" data-action="new-case" data-id="'+esc(menteeId)+'">+ Log a case</button>'
+      + '</div>'
+      + '<div class="card chart-card">'
+      + '<div class="card-title">Your performance over time</div>'
+      + '<div class="card-sub">Category averages by case, 1&ndash;10 scale. Based on your own self-scoring.</div>'
+      + chartOrEmptyHTML(evals, 'selfChartWrap', 'yourself')
+      + '</div>'
+      + '<div class="section-title">Your case history</div>'
+      + caseRowsHTML(evals, 'You haven’t logged a case yet. Use “+ Log a case” to score your first one.', null);
+  }
+
+  /* ---------------- chart drawing ---------------- */
+
+  function drawChart(evalsIn, wrapId){
+    var wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    var evals = evalsIn.slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+    if (evals.length === 0) return;
+
+    var cs = getComputedStyle(document.documentElement);
+    function cvar(name){ return cs.getPropertyValue(name).trim(); }
+
+    var W = wrap.clientWidth || 700;
+    var H = 260;
+    var padL = 30, padR = 16, padT = 14, padB = 28;
+    var plotW = W - padL - padR;
+    var plotH = H - padT - padB;
+
+    var series = CATEGORIES.map(function(c){
+      return { key:c.key, color: cvar(c.color.replace('var(','').replace(')','')), label:c.short,
+        values: evals.map(function(e){ return catAvg(e.scores, c.key); }) };
+    });
+    var overallColor = cvar('--accent');
+    var overallVals = evals.map(function(e){ return overallAvg(e.scores); });
+
+    function xAt(i){ return evals.length===1 ? plotW/2 : (i/(evals.length-1))*plotW; }
+    function yAt(v){ return plotH - ((v-1)/9)*plotH; }
+
+    var svgNS = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(svgNS,'svg');
+    svg.setAttribute('viewBox','0 0 '+W+' '+H);
+    svg.setAttribute('width','100%');
+    svg.setAttribute('height',H);
+    svg.style.display = 'block';
+    svg.style.overflow = 'visible';
+
+    var g = document.createElementNS(svgNS,'g');
+    g.setAttribute('transform','translate('+padL+','+padT+')');
+    svg.appendChild(g);
+
+    var gridColor = cvar('--chart-grid');
+    var axisColor = cvar('--chart-axis');
+    var mutedColor = cvar('--ink-faint');
+
+    [2,4,6,8,10].forEach(function(v){
+      var y = yAt(v);
+      var line = document.createElementNS(svgNS,'line');
+      line.setAttribute('x1',0); line.setAttribute('x2',plotW);
+      line.setAttribute('y1',y); line.setAttribute('y2',y);
+      line.setAttribute('stroke', v===10 ? axisColor : gridColor);
+      line.setAttribute('stroke-width', 1);
+      g.appendChild(line);
+      var label = document.createElementNS(svgNS,'text');
+      label.setAttribute('x', -8); label.setAttribute('y', y+3);
+      label.setAttribute('text-anchor','end');
+      label.setAttribute('font-size','10.5');
+      label.setAttribute('font-family','IBM Plex Mono, monospace');
+      label.setAttribute('fill', mutedColor);
+      label.textContent = v;
+      g.appendChild(label);
+    });
+
+    var tickCount = Math.min(6, evals.length);
+    for (var t=0; t<tickCount; t++){
+      var idx = tickCount===1 ? 0 : Math.round(t*(evals.length-1)/(tickCount-1));
+      var tx = xAt(idx);
+      var tl = document.createElementNS(svgNS,'text');
+      tl.setAttribute('x', tx); tl.setAttribute('y', plotH+20);
+      tl.setAttribute('text-anchor', idx===0 ? 'start' : (idx===evals.length-1 ? 'end':'middle'));
+      tl.setAttribute('font-size','10.5');
+      tl.setAttribute('font-family','IBM Plex Mono, monospace');
+      tl.setAttribute('fill', mutedColor);
+      tl.textContent = fmtDateShort(evals[idx].date);
+      g.appendChild(tl);
+    }
+
+    function drawSeries(values, color, width, labelIt){
+      var d = values.map(function(v,i){ return (i===0?'M':'L')+xAt(i).toFixed(1)+','+yAt(v).toFixed(1); }).join(' ');
+      var path = document.createElementNS(svgNS,'path');
+      path.setAttribute('d', d);
+      path.setAttribute('fill','none');
+      path.setAttribute('stroke', color);
+      path.setAttribute('stroke-width', width);
+      path.setAttribute('stroke-linecap','round');
+      path.setAttribute('stroke-linejoin','round');
+      g.appendChild(path);
+
+      var lastI = values.length-1;
+      var dot = document.createElementNS(svgNS,'circle');
+      dot.setAttribute('cx', xAt(lastI)); dot.setAttribute('cy', yAt(values[lastI]));
+      dot.setAttribute('r', width+1.5);
+      dot.setAttribute('fill', color);
+      g.appendChild(dot);
+
+      if (labelIt){
+        var lx = xAt(lastI) + 6;
+        var anchor = 'start';
+        if (lx > plotW - 26){ lx = xAt(lastI) - 6; anchor='end'; }
+        var lt = document.createElementNS(svgNS,'text');
+        lt.setAttribute('x', lx); lt.setAttribute('y', yAt(values[lastI])+3.5);
+        lt.setAttribute('text-anchor', anchor);
+        lt.setAttribute('font-size','10.5');
+        lt.setAttribute('font-family','IBM Plex Mono, monospace');
+        lt.setAttribute('font-weight','600');
+        lt.setAttribute('fill', color);
+        lt.textContent = fmt1(values[lastI]);
+        g.appendChild(lt);
+      }
+    }
+
+    series.forEach(function(s){ drawSeries(s.values, s.color, 2, evals.length>1); });
+    drawSeries(overallVals, overallColor, 3, true);
+
+    // hover layer
+    var hoverLine = document.createElementNS(svgNS,'line');
+    hoverLine.setAttribute('y1',0); hoverLine.setAttribute('y2',plotH);
+    hoverLine.setAttribute('stroke', axisColor);
+    hoverLine.setAttribute('stroke-width',1);
+    hoverLine.style.opacity = 0;
+    g.appendChild(hoverLine);
+
+    var allSeries = series.concat([{color: overallColor, values: overallVals, label:'Overall'}]);
+    var hoverDots = allSeries.map(function(){
+      var c = document.createElementNS(svgNS,'circle');
+      c.setAttribute('r', 4);
+      c.style.opacity = 0;
+      g.appendChild(c);
+      return c;
+    });
+
+    var overlayRect = document.createElementNS(svgNS,'rect');
+    overlayRect.setAttribute('x',0); overlayRect.setAttribute('y',0);
+    overlayRect.setAttribute('width',plotW); overlayRect.setAttribute('height',plotH);
+    overlayRect.setAttribute('fill','transparent');
+    overlayRect.style.cursor = 'crosshair';
+    g.appendChild(overlayRect);
+
+    wrap.innerHTML = '';
+    wrap.appendChild(svg);
+    var tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    wrap.appendChild(tooltip);
+
+    function showAt(i){
+      hoverLine.style.opacity = 1;
+      hoverLine.setAttribute('x1', xAt(i)); hoverLine.setAttribute('x2', xAt(i));
+      allSeries.forEach(function(s, si){
+        hoverDots[si].style.opacity = 1;
+        hoverDots[si].setAttribute('cx', xAt(i));
+        hoverDots[si].setAttribute('cy', yAt(s.values[i]));
+        hoverDots[si].setAttribute('fill', s.color);
+      });
+      var rows = allSeries.map(function(s){
+        return '<div class="t-row"><span class="sw" style="background:'+s.color+'"></span>'+s.label+': <b class="num">'+fmt1(s.values[i])+'</b></div>';
+      }).join('');
+      tooltip.innerHTML = '<div class="t-date">'+fmtDate(evals[i].date)+'</div>'+rows;
+      tooltip.style.opacity = 1;
+      tooltip.style.left = (padL + xAt(i)) + 'px';
+      tooltip.style.top = (padT + yAt(allSeries[allSeries.length-1].values[i])) + 'px';
+    }
+    function hide(){
+      hoverLine.style.opacity = 0;
+      hoverDots.forEach(function(d){ d.style.opacity = 0; });
+      tooltip.style.opacity = 0;
+    }
+    overlayRect.addEventListener('mousemove', function(ev){
+      var rect = svg.getBoundingClientRect();
+      var scale = W / rect.width;
+      var mx = (ev.clientX - rect.left)*scale - padL;
+      var i = evals.length===1 ? 0 : Math.round((mx/plotW)*(evals.length-1));
+      i = Math.max(0, Math.min(evals.length-1, i));
+      showAt(i);
+    });
+    overlayRect.addEventListener('mouseleave', hide);
+    overlayRect.addEventListener('touchstart', function(ev){
+      var tt = ev.touches[0];
+      var rect = svg.getBoundingClientRect();
+      var scale = W / rect.width;
+      var mx = (tt.clientX - rect.left)*scale - padL;
+      var i = evals.length===1 ? 0 : Math.round((mx/plotW)*(evals.length-1));
+      i = Math.max(0, Math.min(evals.length-1, i));
+      showAt(i);
+    }, {passive:true});
+  }
+
+  /* ---------------- overlays: new case / admin ---------------- */
+
+  function renderOverlay(){
+    var existing = document.getElementById('overlayRoot');
+    if (existing) existing.remove();
+    if (!state.overlay) return;
+
+    var root = document.createElement('div');
+    root.id = 'overlayRoot';
+    root.className = 'overlay';
+    root.setAttribute('data-action','overlay-backdrop');
+
+    if (state.overlay === 'admin'){
+      root.innerHTML = adminModalHTML();
+    } else if (state.overlay.type === 'newCase'){
+      root.innerHTML = newCaseModalHTML(state.overlay.menteeId, state.overlay.source);
+    }
+    document.body.appendChild(root);
+
+    if (state.overlay && state.overlay.type === 'newCase'){
+      root.querySelectorAll('input[type=range]').forEach(function(r){
+        var out = root.querySelector('output[data-for="'+r.id+'"]');
+        r.addEventListener('input', function(){ if (out) out.textContent = r.value; });
+      });
+    }
+  }
+
+  function newCaseModalHTML(menteeId, source){
+    var mentee = menteeById(menteeId);
+    var today = todayISO();
+    var title = source === 'self' ? 'Log your case' : 'Log a case &mdash; '+esc(mentee ? mentee.name : '');
+    var groups = CATEGORIES.map(function(c){
+      return '<fieldset>'
+        + '<legend><span class="sw" style="background:'+c.color+'"></span>'+c.label+'</legend>'
+        + c.metrics.map(function(m){
+            var id = 'sc_'+c.key+'_'+m.key;
+            return '<div class="slider-row">'
+              + '<label for="'+id+'">'+m.label+'</label>'
+              + '<input type="range" id="'+id+'" name="'+id+'" min="1" max="10" step="1" value="5">'
+              + '<output class="val num" data-for="'+id+'">5</output>'
+              + '</div>';
+          }).join('')
+        + '</fieldset>';
+    }).join('');
+
+    return '<div class="modal" role="dialog" aria-modal="true">'
+      + '<div class="modal-head" style="border-bottom:1px solid var(--border);"><h2>'+title+'</h2><button class="close-x" data-action="close-overlay">&times;</button></div>'
+      + '<form id="caseForm">'
+      + '<div class="modal-body" style="padding-top:20px;">'
+      + '<div class="field-row">'
+      + '<div class="field"><label for="caseDate">Date</label><input type="date" id="caseDate" value="'+today+'" required></div>'
+      + '<div class="field"><label for="caseName">Case</label><input type="text" id="caseName" placeholder="e.g. Market entry &mdash; sparkling water"></div>'
+      + '</div>'
+      + '<p class="hint">Score each dimension 1 (needs work) &ndash; 10 (exceptional). Defaults start at 5.</p>'
+      + groups
+      + '<div class="field"><label for="caseNotes">Notes</label><textarea id="caseNotes" placeholder="What stood out? Structure, drivers, recommendation delivery&hellip;"></textarea></div>'
+      + '</div>'
+      + '<div class="modal-foot"><button type="button" class="btn" data-action="close-overlay">Cancel</button><button type="submit" class="btn btn-primary">Save scorecard</button></div>'
+      + '</form>'
+      + '</div>';
+  }
+
+  function adminModalHTML(){
+    var tab = state.adminTab;
+    return '<div class="modal wide" role="dialog" aria-modal="true">'
+      + '<div class="modal-head"><h2>Admin</h2><button class="close-x" data-action="close-overlay">&times;</button></div>'
+      + '<div class="admin-tabs">'
+      + '<button class="admin-tab-btn'+(tab==='overview'?' active':'')+'" data-action="admin-tab" data-tab="overview">Cohort overview</button>'
+      + '<button class="admin-tab-btn'+(tab==='roster'?' active':'')+'" data-action="admin-tab" data-tab="roster">Manage roster</button>'
+      + '</div>'
+      + '<div class="modal-body">'
+      + (tab === 'overview' ? adminOverviewHTML() : adminRosterHTML())
+      + '</div>'
+      + '</div>';
+  }
+
+  function adminOverviewHTML(){
+    if (!unsubAllEvals){
+      return '<p class="empty-note">Loading cohort data&hellip;</p>';
+    }
+    var totalCases = state.allEvaluations.length;
+    var summary = '<div class="cohort-summary">'
+      + '<div class="stat"><span class="v num">'+state.mentors.length+'</span><span class="l">Pod leads</span></div>'
+      + '<div class="stat"><span class="v num">'+state.mentees.length+'</span><span class="l">Mentees</span></div>'
+      + '<div class="stat"><span class="v num">'+totalCases+'</span><span class="l">Cases logged</span></div>'
+      + '</div>';
+
+    if (state.mentors.length === 0){
+      return summary + '<p class="empty-note">Add pod leads and mentees under “Manage roster” to see cohort performance here.</p>';
+    }
+
+    var rows = state.mentors.map(function(mentor){
+      var mentees = menteesForMentor(mentor.id);
+      var menteeStats = mentees.map(function(mt){
+        var all = allEvalsForMentee(mt.id);
+        var evs = mentorScored(all).slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
+        var selfCount = selfScored(all).length;
+        var latest = evs.length ? overallAvg(evs[evs.length-1].scores) : null;
+        var lastDate = evs.length ? evs[evs.length-1].date : null;
+        return { mentee: mt, count: evs.length, selfCount: selfCount, latest: latest, lastDate: lastDate };
+      });
+      var totalPodCases = menteeStats.reduce(function(a,s){ return a+s.count; },0);
+      var scored = menteeStats.filter(function(s){ return s.latest !== null; });
+      var avgScore = scored.length ? scored.reduce(function(a,s){ return a+s.latest; },0)/scored.length : null;
+      var lastActivity = menteeStats.reduce(function(acc,s){ return (s.lastDate && (!acc || s.lastDate>acc)) ? s.lastDate : acc; }, null);
+
+      var menteeRows = menteeStats.length
+        ? menteeStats.slice().sort(function(a,b){ return a.mentee.name.localeCompare(b.mentee.name); }).map(function(s){
+            return '<div class="admin-mentee-row">'
+              + '<span class="n">'+esc(s.mentee.name)+'</span>'
+              + '<span class="meta">'+s.count+' case'+(s.count===1?'':'s')+(s.selfCount ? ' + '+s.selfCount+' self' : '')+'</span>'
+              + badgeHTML(s.latest)
+              + '<span class="meta">'+(s.lastDate ? fmtDateShort(s.lastDate) : '&mdash;')+'</span>'
+              + '</div>';
+          }).join('')
+        : '<div class="empty-note" style="padding:6px 0;">No mentees assigned yet.</div>';
+
+      return '<div class="case-row">'
+        + '<div class="case-row-head" data-action="toggle-case">'
+        + '<span class="cname">'+esc(mentor.name)+'</span>'
+        + '<span class="meta">'+mentees.length+' mentee'+(mentees.length===1?'':'s')+'</span>'
+        + '<span class="meta">'+totalPodCases+' case'+(totalPodCases===1?'':'s')+'</span>'
+        + badgeHTML(avgScore)
+        + '<span class="meta">'+(lastActivity ? 'last '+fmtDateShort(lastActivity) : 'no cases yet')+'</span>'
+        + '<span class="chevron">▸</span>'
+        + '</div>'
+        + '<div class="case-row-body">'+menteeRows+'</div>'
+        + '</div>';
+    }).join('');
+
+    return summary + rows;
+  }
+
+  function adminRosterHTML(){
+    var byMentor = state.mentors.map(function(m){
+      return { mentor:m, mentees: menteesForMentor(m.id) };
+    });
+    var listHTML = byMentor.length === 0
+      ? '<p class="empty-note">No pod leads yet.</p>'
+      : byMentor.map(function(g){
+          return '<div class="admin-mentor-block">'
+            + '<div class="mname">'+esc(g.mentor.name)+' <span class="empty-note">('+g.mentees.length+')</span></div>'
+            + (g.mentees.length
+                ? g.mentees.map(function(mt){ return '<span class="admin-mentee-chip">'+esc(mt.name)+'</span>'; }).join('')
+                : '<span class="empty-note">no mentees yet</span>')
+            + '</div>';
+        }).join('');
+
+    var mentorOptions = state.mentors.map(function(m){ return '<option value="'+esc(m.id)+'">'+esc(m.name)+'</option>'; }).join('');
+
+    return '<div class="roster-admin-list">'+listHTML+'</div>'
+      + '<hr class="divider">'
+      + '<form id="addMentorForm" style="margin-bottom:14px;">'
+      + '<div class="field-row">'
+      + '<div class="field"><label for="newMentorName">Add pod lead</label><input type="text" id="newMentorName" placeholder="Mentor name" required></div>'
+      + '<div class="field" style="flex:0 0 auto; align-self:flex-end;"><button type="submit" class="btn btn-small">Add</button></div>'
+      + '</div>'
+      + '</form>'
+      + '<form id="addMenteeForm">'
+      + '<div class="field-row">'
+      + '<div class="field"><label for="newMenteeName">Add mentee</label><input type="text" id="newMenteeName" placeholder="Mentee name" required></div>'
+      + '<div class="field"><label for="newMenteeMentor">Pod lead</label><select id="newMenteeMentor" required>'+mentorOptions+'</select></div>'
+      + '<div class="field" style="flex:0 0 auto; align-self:flex-end;"><button type="submit" class="btn btn-small" '+(state.mentors.length?'':'disabled')+'>Add</button></div>'
+      + '</div>'
+      + '</form>';
+  }
+
+  /* ---------------- event delegation ---------------- */
+
+  document.addEventListener('click', function(e){
+    var t = e.target.closest('[data-action]');
+    if (!t) return;
+    var action = t.getAttribute('data-action');
+    if (action === 'select-role'){ selectRole(t.getAttribute('data-role')); }
+    else if (action === 'switch-all'){ switchAll(); }
+    else if (action === 'select-mentor'){ selectMentor(t.getAttribute('data-id')); }
+    else if (action === 'select-mentee-self'){ selectMenteeSelf(t.getAttribute('data-id')); }
+    else if (action === 'open-mentee'){ state.selectedMenteeId = t.getAttribute('data-id'); render(); }
+    else if (action === 'back-to-roster'){ state.selectedMenteeId = null; render(); }
+    else if (action === 'new-case'){
+      var src = state.role === 'mentee' ? 'self' : 'mentor';
+      state.overlay = { type:'newCase', menteeId: t.getAttribute('data-id'), source: src };
+      render();
+    }
+    else if (action === 'open-admin'){ openAdmin(); }
+    else if (action === 'admin-tab'){ state.adminTab = t.getAttribute('data-tab'); render(); }
+    else if (action === 'close-overlay'){ closeOverlay(); }
+    else if (action === 'overlay-backdrop'){ if (e.target.id === 'overlayRoot'){ closeOverlay(); } }
+    else if (action === 'toggle-case'){
+      var row = t.closest('.case-row');
+      if (row) row.classList.toggle('open');
+    }
+  });
+
+  switchBtn.addEventListener('click', switchAll);
+  adminBtn.addEventListener('click', openAdmin);
+
+  document.addEventListener('submit', function(e){
+    if (e.target.id === 'caseForm'){
+      e.preventDefault();
+      if (!state.db) return;
+      var menteeId = state.overlay.menteeId;
+      var source = state.overlay.source || 'mentor';
+      var mentee = menteeById(menteeId);
+      var scores = {};
+      CATEGORIES.forEach(function(c){
+        scores[c.key] = {};
+        c.metrics.forEach(function(m){
+          var el = document.getElementById('sc_'+c.key+'_'+m.key);
+          scores[c.key][m.key] = Number(el.value);
+        });
+      });
+      var doc = {
+        mentorId: mentee ? mentee.mentorId : state.selectedMentorId,
+        menteeId: menteeId,
+        source: source,
+        date: document.getElementById('caseDate').value || todayISO(),
+        caseName: document.getElementById('caseName').value.trim(),
+        notes: document.getElementById('caseNotes').value.trim(),
+        scores: scores,
+        createdAt: new Date().toISOString()
+      };
+      state.db.collection('evaluations').add(doc).then(function(){
+        state.overlay = null;
+        render();
+      }).catch(function(err){ console.error('save case failed', err); alert('Could not save this scorecard. Please try again.'); });
+    }
+    else if (e.target.id === 'addMentorForm'){
+      e.preventDefault();
+      if (!state.db) return;
+      var input = document.getElementById('newMentorName');
+      var name = input.value.trim();
+      if (!name) return;
+      state.db.collection('mentors').add({ name: name, createdAt: new Date().toISOString() }).then(function(){
+        input.value = '';
+        render();
+      }).catch(function(err){ console.error('add mentor failed', err); alert('Could not add this mentor.'); });
+    }
+    else if (e.target.id === 'addMenteeForm'){
+      e.preventDefault();
+      if (!state.db) return;
+      var nameInput = document.getElementById('newMenteeName');
+      var mentorSelect = document.getElementById('newMenteeMentor');
+      var name = nameInput.value.trim();
+      var mentorId = mentorSelect.value;
+      if (!name || !mentorId) return;
+      state.db.collection('mentees').add({ name: name, mentorId: mentorId, createdAt: new Date().toISOString() }).then(function(){
+        nameInput.value = '';
+        render();
+      }).catch(function(err){ console.error('add mentee failed', err); alert('Could not add this mentee.'); });
+    }
+  });
+
+  window.addEventListener('resize', function(){
+    if (!state.db || state.overlay || !state.selectedMenteeId) return;
+    if (state.role === 'mentor') drawChart(mentorScored(evalsForMentee(state.selectedMenteeId)), 'chartWrap');
+    else if (state.role === 'mentee') drawChart(selfScored(state.selfEvaluations), 'selfChartWrap');
+  });
+
+  init();
+})();
+</script>
