@@ -302,6 +302,18 @@
 
   .conn-banner{ max-width:560px; margin: 14vh auto 0; padding:24px; text-align:center; color: var(--ink-muted); }
 
+  .linklike.danger.confirming{ background: var(--low); color: #fff; padding:3px 10px; border-radius:999px; text-decoration:none; }
+
+  .toast{
+    position:fixed; left:50%; bottom:26px; transform:translateX(-50%) translateY(12px);
+    background: var(--ink); color: var(--bg); padding:11px 18px; border-radius:10px;
+    font-size:0.85rem; box-shadow: var(--shadow); opacity:0; transition: opacity 0.18s, transform 0.18s;
+    z-index:100; pointer-events:none; max-width: min(90vw, 420px); text-align:center;
+  }
+  :root:not([data-theme="light"]) .toast{ background: var(--surface-2); color: var(--ink); border:1px solid var(--border); }
+  :root[data-theme="dark"] .toast{ background: var(--surface-2); color: var(--ink); border:1px solid var(--border); }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
   @media (max-width: 560px){
     .topbar{ padding: 12px 16px; }
     main{ padding: 22px 16px 60px; }
@@ -378,6 +390,36 @@
     if (n === null || n === undefined) return '<span class="badge badge-none"><span class="dot"></span>&mdash;</span>';
     var b = scoreBand(n);
     return '<span class="badge badge-'+b.cls+'"><span class="dot"></span>'+fmt1(n)+' &middot; '+b.label+'</span>';
+  }
+
+  var toastTimeout = null;
+  function showToast(msg){
+    var el = document.getElementById('toast');
+    if (!el){
+      el = document.createElement('div');
+      el.id = 'toast';
+      el.className = 'toast';
+      document.body.appendChild(el);
+    }
+    el.textContent = msg;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    if (toastTimeout) clearTimeout(toastTimeout);
+    toastTimeout = setTimeout(function(){ el.classList.remove('show'); }, 3200);
+  }
+
+  function armConfirm(btn, label){
+    btn.classList.add('confirming');
+    if (!btn.dataset.origLabel) btn.dataset.origLabel = btn.textContent;
+    btn.textContent = label || 'confirm?';
+    if (btn._confirmTimer) clearTimeout(btn._confirmTimer);
+    btn._confirmTimer = setTimeout(function(){ disarmConfirm(btn); }, 3000);
+  }
+  function disarmConfirm(btn){
+    btn.classList.remove('confirming');
+    if (btn.dataset.origLabel) btn.textContent = btn.dataset.origLabel;
+    if (btn._confirmTimer){ clearTimeout(btn._confirmTimer); btn._confirmTimer = null; }
   }
 
   function esc(s){
@@ -1224,19 +1266,19 @@
     else if (action === 'remove-mentor'){
       if (!state.db) return;
       var mId = t.getAttribute('data-id');
-      var m = mentorById(mId);
       if (menteesForMentor(mId).length) return;
-      if (!confirm('Remove '+(m?m.name:'this pod lead')+'? This can\'t be undone.')) return;
-      state.db.collection('mentors').doc(mId).delete().then(render)
-        .catch(function(err){ console.error('remove mentor failed', err); alert('Could not remove this pod lead.'); });
+      if (!t.classList.contains('confirming')){ armConfirm(t, 'confirm?'); return; }
+      disarmConfirm(t);
+      state.db.collection('mentors').doc(mId).delete()
+        .catch(function(err){ console.error('remove mentor failed', err); showToast('Could not remove this pod lead.'); });
     }
     else if (action === 'remove-mentee'){
       if (!state.db) return;
       var tId = t.getAttribute('data-id');
-      var mt = menteeById(tId);
-      if (!confirm('Remove '+(mt?mt.name:'this mentee')+'? This can\'t be undone.')) return;
-      state.db.collection('mentees').doc(tId).delete().then(render)
-        .catch(function(err){ console.error('remove mentee failed', err); alert('Could not remove this mentee.'); });
+      if (!t.classList.contains('confirming')){ armConfirm(t, 'confirm?'); return; }
+      disarmConfirm(t);
+      state.db.collection('mentees').doc(tId).delete()
+        .catch(function(err){ console.error('remove mentee failed', err); showToast('Could not remove this mentee.'); });
     }
   });
 
@@ -1251,7 +1293,7 @@
     if (!value){ el.value = current.name; return; }
     if (value === current.name) return;
     state.db.collection(collection).doc(id).update({ name: value })
-      .catch(function(err){ console.error('rename failed', err); alert('Could not save that name.'); el.value = current.name; });
+      .catch(function(err){ console.error('rename failed', err); showToast('Could not save that name.'); el.value = current.name; });
   }
 
   document.addEventListener('focusout', function(e){
@@ -1269,7 +1311,7 @@
       var id = e.target.getAttribute('data-id');
       var newMentorId = e.target.value;
       state.db.collection('mentees').doc(id).update({ mentorId: newMentorId })
-        .catch(function(err){ console.error('reassign failed', err); alert('Could not reassign this mentee.'); });
+        .catch(function(err){ console.error('reassign failed', err); showToast('Could not reassign this mentee.'); });
     }
   });
 
@@ -1304,7 +1346,7 @@
       state.db.collection('evaluations').add(doc).then(function(){
         state.overlay = null;
         render();
-      }).catch(function(err){ console.error('save case failed', err); alert('Could not save this scorecard. Please try again.'); });
+      }).catch(function(err){ console.error('save case failed', err); showToast('Could not save this scorecard. Please try again.'); });
     }
     else if (e.target.id === 'addMentorForm'){
       e.preventDefault();
@@ -1315,7 +1357,7 @@
       state.db.collection('mentors').add({ name: name, createdAt: new Date().toISOString() }).then(function(){
         input.value = '';
         render();
-      }).catch(function(err){ console.error('add mentor failed', err); alert('Could not add this mentor.'); });
+      }).catch(function(err){ console.error('add mentor failed', err); showToast('Could not add this mentor.'); });
     }
     else if (e.target.id === 'addMenteeForm'){
       e.preventDefault();
@@ -1328,7 +1370,7 @@
       state.db.collection('mentees').add({ name: name, mentorId: mentorId, createdAt: new Date().toISOString() }).then(function(){
         nameInput.value = '';
         render();
-      }).catch(function(err){ console.error('add mentee failed', err); alert('Could not add this mentee.'); });
+      }).catch(function(err){ console.error('add mentee failed', err); showToast('Could not add this mentee.'); });
     }
   });
 
