@@ -1,0 +1,143 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    // get()/exists() on the SAME path within one rule evaluation are
+    // cached by Firestore, so calling these from several functions in
+    // one request does not multiply the document-access count.
+    function sess() {
+      return get(/databases/$(database)/documents/mentorSessions/$(request.auth.uid)).data;
+    }
+    function hasSession() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/mentorSessions/$(request.auth.uid))
+        && exists(/databases/$(database)/documents/mentorTokens/$(sess().token));
+    }
+    function isAdmin() { return hasSession() && sess().isAdmin == true; }
+
+    function validScore(s) { return s == null || (s is int && s >= 1 && s <= 10); }
+    function needsWhy(s)   { return s != null && (s <= 3 || s >= 7); }
+    function whyOk(d, cat) {
+      return !needsWhy(d.scores[cat])
+        || (d.get('rationale', {}).get(cat, null) is string
+            && d.get('rationale', {}).get(cat, '').size() >= 10);
+    }
+    // Shared by evaluations and selfEvaluations: both carry the same
+    // scores/rationale shape plus date/caseName/notes denormalized from
+    // the case record, so the client can render without a join.
+    function validScores(d) {
+      return d.scores.keys().hasOnly(['ps','analytical','comm','biz'])
+        && d.scores.keys().hasAll(['ps','analytical','comm','biz'])
+        && validScore(d.scores.ps) && validScore(d.scores.analytical)
+        && validScore(d.scores.comm) && validScore(d.scores.biz)
+        && whyOk(d,'ps') && whyOk(d,'analytical') && whyOk(d,'comm') && whyOk(d,'biz')
+        && d.createdAt == request.time
+        && d.date is string
+        && d.caseName is string && d.caseName.size() <= 120
+        && (!('notes' in d) || (d.notes is string && d.notes.size() <= 2000));
+    }
+    function refsOk(d) {
+      return exists(/databases/$(database)/documents/mentees/$(d.menteeId))
+        && get(/databases/$(database)/documents/mentees/$(d.menteeId)).data.primaryMentorId == d.primaryMentorId
+        && exists(/databases/$(database)/documents/cases/$(d.caseId))
+        && get(/databases/$(database)/documents/cases/$(d.caseId)).data.menteeId == d.menteeId;
+    }
+
+    // ---------- public roster (no scores in here) ----------
+    // Seeded and edited only via scripts/seed.mjs (Admin SDK) or the
+    // Firebase console, which bypass rules entirely — hence write: false
+    // unconditionally, with no admin exception in these rules.
+    match /mentees/{id} { allow get, list: if true; allow write: if false; }
+    match /mentors/{id} { allow get, list: if true; allow write: if false; }
+
+    // ---------- tokens: bearer credentials, no client access at all ----------
+    match /mentorTokens/{token} { allow read, write: if false; }
+
+    // ---------- mentor sessions ----------
+    // The client claims isAdmin (it cannot read mentorTokens to know the
+    // true value); this rule verifies the claim against the token record
+    // before allowing the session to be created. A mismatched claim, a
+    // token that doesn't exist, or a uid that doesn't match the caller
+    // all fail closed.
+    match /mentorSessions/{uid} {
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['token','mentorId','isAdmin'])
+        && request.resource.data.keys().hasAll(['token','mentorId','isAdmin'])
+        && exists(/databases/$(database)/documents/mentorTokens/$(request.resource.data.token))
+        && get(/databases/$(database)/documents/mentorTokens/$(request.resource.data.token)).data.mentorId
+             == request.resource.data.mentorId
+        && get(/databases/$(database)/documents/mentorTokens/$(request.resource.data.token)).data.isAdmin
+             == request.resource.data.isAdmin;
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow list, update, delete: if false;
+    }
+
+    // ---------- cases (names/dates only, public read) ----------
+    match /cases/{caseId} {
+      allow get, list: if true;
+      allow create: if request.resource.data.keys().hasOnly(
+            ['menteeId','primaryMentorId','caseName','date','createdBy','createdAt'])
+        && request.resource.data.keys().hasAll(
+            ['menteeId','primaryMentorId','caseName','date','createdBy','createdAt'])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.caseName is string
+        && request.resource.data.caseName.size() <= 120
+        && request.resource.data.date is string
+        && exists(/databases/$(database)/documents/mentees/$(request.resource.data.menteeId))
+        && get(/databases/$(database)/documents/mentees/$(request.resource.data.menteeId)).data.primaryMentorId
+             == request.resource.data.primaryMentorId
+        && (request.resource.data.createdBy == 'mentee'
+            || (hasSession() && request.resource.data.createdBy == sess().mentorId));
+      allow update, delete: if isAdmin();
+    }
+
+    // ---------- mentor-authored evaluations ----------
+    // Doc ID is deterministic (caseId_mentor_scorerId): one score per
+    // (case, scorer) pair, and a repeat attempt is an "update" against a
+    // document that already exists, which nothing below grants.
+    match /evaluations/{evalId} {
+      allow create: if hasSession()
+        && request.resource.data.source == 'mentor'
+        && request.resource.data.scorerId == sess().mentorId
+        && evalId == request.resource.data.caseId + '_mentor_' + request.resource.data.scorerId
+        && request.resource.data.keys().hasOnly(
+             ['caseId','menteeId','primaryMentorId','scorerId','source','scores','rationale','date','caseName','notes','createdAt'])
+        && request.resource.data.keys().hasAll(
+             ['caseId','menteeId','primaryMentorId','scorerId','source','scores','date','caseName','createdAt'])
+        && validScores(request.resource.data)
+        && refsOk(request.resource.data);
+      // Pod-scoped: a list query MUST include where('primaryMentorId','==',<own mentorId>)
+      // or Firestore rejects it outright — it cannot verify an
+      // unconstrained query stays inside the rule.
+      allow read: if isAdmin()
+        || (hasSession() && resource.data.primaryMentorId == sess().mentorId);
+      allow update, delete: if isAdmin();
+    }
+
+    // ---------- mentee self-evaluations (write-only for mentees) ----------
+    match /selfEvaluations/{caseId} {
+      allow create: if request.resource.data.source == 'self'
+        && caseId == request.resource.data.caseId
+        && request.resource.data.keys().hasOnly(
+             ['caseId','menteeId','primaryMentorId','source','scores','rationale','date','caseName','notes','createdAt'])
+        && request.resource.data.keys().hasAll(
+             ['caseId','menteeId','primaryMentorId','source','scores','date','caseName','createdAt'])
+        && validScores(request.resource.data)
+        && refsOk(request.resource.data);
+      // Blind entry: the mentee's primary mentor may fetch a single
+      // self-eval only after submitting their own evaluation for that
+      // same case (never a list, and never a mentor who merely scored
+      // cross-pod without being this mentee's primary mentor).
+      allow get: if isAdmin()
+        || (hasSession()
+            && resource.data.primaryMentorId == sess().mentorId
+            && exists(/databases/$(database)/documents/evaluations/$(caseId + '_mentor_' + sess().mentorId)));
+      allow list: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // default deny
+    match /{document=**} { allow read, write: if false; }
+  }
+}

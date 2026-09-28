@@ -1,0 +1,20 @@
+node_modules/
+.DS_Store
+npm-debug.log*
+
+# secrets and generated bearer credentials — never commit these
+tokens.json
+mentor-urls.txt
+serviceAccount*.json
+*.serviceaccount.json
+
+# local input rosters may contain real names — keep them out of a public repo
+mentees.csv
+mentors.csv
+
+# firebase tooling
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+firebase-export-*/
