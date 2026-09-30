@@ -490,6 +490,10 @@
     }
 
     renderOverlay();
+
+    if (state.mode === 'mentee' && !state.menteeId){
+      wireNamePickerSearch(appEl);
+    }
   }
 
   /* ---------------- mentee mode ---------------- */
@@ -502,12 +506,34 @@
     return '<div class="picker-wrap">'
       + '<h1>Find your name</h1>'
       + '<p>Pick yourself to log your own cases.</p>'
-      + '<div class="mentor-grid">'
+      + '<div class="field" style="text-align:left;max-width:320px;margin:0 auto 16px;"><input type="text" id="nameSearchInput" placeholder="Search by name&hellip;" autocomplete="off"></div>'
+      + '<div class="mentor-grid" id="nameSearchGrid">'
       + list.map(function(m){
-          return '<button class="mentor-chip" data-action="select-mentee-self" data-id="'+esc(m.id)+'">'+esc(m.name)+'</button>';
+          var mentor = mentorById(m.primaryMentorId);
+          var search = (m.name + ' ' + (mentor ? mentor.name : '')).toLowerCase();
+          return '<button class="mentor-chip" data-action="select-mentee-self" data-id="'+esc(m.id)+'" data-search="'+esc(search)+'">'+esc(m.name)+'</button>';
         }).join('')
       + '</div>'
+      + '<p class="empty-note" id="nameSearchEmpty" hidden>No matches &mdash; check the spelling, or search your pod lead’s name instead.</p>'
       + '</div>';
+  }
+
+  function wireNamePickerSearch(root){
+    var input = root.querySelector('#nameSearchInput');
+    var grid = root.querySelector('#nameSearchGrid');
+    var empty = root.querySelector('#nameSearchEmpty');
+    if (!input || !grid) return;
+    input.addEventListener('input', function(){
+      var q = input.value.trim().toLowerCase();
+      var visible = 0;
+      grid.querySelectorAll('.mentor-chip').forEach(function(chip){
+        var match = !q || chip.getAttribute('data-search').indexOf(q) !== -1;
+        chip.hidden = !match;
+        if (match) visible++;
+      });
+      if (empty) empty.hidden = visible !== 0;
+    });
+    input.focus();
   }
 
   function menteeHomeHTML(menteeId){
