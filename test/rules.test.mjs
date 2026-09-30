@@ -11,7 +11,7 @@ import {
 } from '@firebase/rules-unit-testing';
 import {
   doc, getDoc, setDoc, updateDoc, deleteDoc,
-  collection, query, where, getDocs, serverTimestamp,
+  collection, query, where, limit, getDocs, serverTimestamp,
 } from 'firebase/firestore';
 
 const PROJECT_ID = 'demo-casebook-test';
@@ -104,6 +104,18 @@ function mentorEvalPayload(overrides = {}) {
   return {
     caseId: CASE_A1, menteeId: MENTEE_A, primaryMentorId: MENTOR_A, scorerId: MENTOR_A, source: 'mentor',
     scores: scores(), date: '2026-09-01', caseName: 'Market entry', createdAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
+function firstOfKindCategories() {
+  return { ps: { trend: null }, analytical: { trend: null }, comm: { trend: null }, biz: { trend: null } };
+}
+
+function selfLogPayload(overrides = {}) {
+  return {
+    menteeId: MENTEE_A, caseName: 'Market entry', date: '2026-09-01',
+    categories: firstOfKindCategories(), createdAt: serverTimestamp(),
     ...overrides,
   };
 }
@@ -358,6 +370,99 @@ describe('cross-pod access', () => {
 
     // the grant is scoped to MENTEE_B only — it must not leak to MENTEE_C, who has no grant
     await assertFails(getDocs(query(collection(dbA, 'evaluations'), where('menteeId', '==', MENTEE_C))));
+  });
+});
+
+// ============================================================
+// selfLog (caselog-solo.html — mentee self-tracking, relative trend)
+// ============================================================
+describe('selfLog (caselog-solo)', () => {
+  it('can create a valid first-of-kind entry (all categories null, no notes)', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertSucceeds(setDoc(doc(collection(db, 'selfLog')), selfLogPayload()));
+  });
+
+  it('can create better/worse entries with a >=10 char note, and same with no note', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertSucceeds(setDoc(doc(collection(db, 'selfLog')), selfLogPayload({
+      categories: {
+        ps: { trend: 'better', note: 'Structured the case without prompting this time' },
+        analytical: { trend: 'same' },
+        comm: { trend: 'worse', note: 'Rambled more than usual under pressure' },
+        biz: { trend: 'same' },
+      },
+    })));
+  });
+
+  it('cannot create a "same" or null entry that carries a note', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(setDoc(doc(collection(db, 'selfLog')), selfLogPayload({
+      categories: { ...firstOfKindCategories(), ps: { trend: 'same', note: 'should not be allowed here' } },
+    })));
+    await assertFails(setDoc(doc(collection(db, 'selfLog')), selfLogPayload({
+      categories: { ...firstOfKindCategories(), ps: { trend: null, note: 'should not be allowed here' } },
+    })));
+  });
+
+  it('cannot create a better/worse entry with no note or a too-short note', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(setDoc(doc(collection(db, 'selfLog')), selfLogPayload({
+      categories: { ...firstOfKindCategories(), ps: { trend: 'better' } },
+    })));
+    await assertFails(setDoc(doc(collection(db, 'selfLog')), selfLogPayload({
+      categories: { ...firstOfKindCategories(), ps: { trend: 'worse', note: 'too short' } }, // 9 chars
+    })));
+  });
+
+  it('cannot create with an invalid trend value, extra category keys, or a missing category', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(setDoc(doc(collection(db, 'selfLog')), selfLogPayload({
+      categories: { ...firstOfKindCategories(), ps: { trend: 'amazing' } },
+    })));
+    await assertFails(setDoc(doc(collection(db, 'selfLog')), selfLogPayload({
+      categories: { ...firstOfKindCategories(), ps: { trend: null, extra: 'nope' } },
+    })));
+    const { biz, ...missingBiz } = firstOfKindCategories();
+    await assertFails(setDoc(doc(collection(db, 'selfLog')), selfLogPayload({ categories: missingBiz })));
+  });
+
+  it('cannot create with extra top-level keys, or referencing a nonexistent mentee', async () => {
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertFails(setDoc(doc(collection(db, 'selfLog')), { ...selfLogPayload(), extra: 'nope' }));
+    await assertFails(setDoc(doc(collection(db, 'selfLog')), selfLogPayload({ menteeId: 'no-such-mentee' })));
+  });
+
+  it('anyone can get a single entry by id, even unauthenticated', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'selfLog', 'entry-1'), selfLogPayload());
+    });
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertSucceeds(getDoc(doc(db, 'selfLog', 'entry-1')));
+  });
+
+  it('can list with a menteeId filter at limit<=50; a query over the limit fails (rules cannot see the filter value itself)', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'selfLog', 'entry-1'), selfLogPayload());
+    });
+    const db = testEnv.unauthenticatedContext().firestore();
+    await assertSucceeds(getDocs(query(collection(db, 'selfLog'), where('menteeId', '==', MENTEE_A), limit(50))));
+    await assertFails(getDocs(query(collection(db, 'selfLog'), where('menteeId', '==', MENTEE_A), limit(51))));
+    await assertFails(getDocs(collection(db, 'selfLog'))); // no limit at all
+  });
+
+  it('admin can list everything unconstrained, and update/delete; a non-admin cannot update or delete', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'selfLog', 'entry-1'), selfLogPayload());
+    });
+    const dbAdmin = (await createSession(UID_ADMIN, MENTOR_ADMIN, TOKEN_ADMIN, true)).firestore();
+    await assertSucceeds(getDocs(collection(dbAdmin, 'selfLog')));
+    await assertSucceeds(updateDoc(doc(dbAdmin, 'selfLog', 'entry-1'), { caseName: 'edited' }));
+
+    const dbA = (await createSession(UID_A, MENTOR_A, TOKEN_A, false)).firestore();
+    await assertFails(updateDoc(doc(dbA, 'selfLog', 'entry-1'), { caseName: 'edited again' }));
+    await assertFails(deleteDoc(doc(dbA, 'selfLog', 'entry-1')));
+
+    await assertSucceeds(deleteDoc(doc(dbAdmin, 'selfLog', 'entry-1')));
   });
 });
 

@@ -44,6 +44,24 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/cases/$(d.caseId)).data.menteeId == d.menteeId;
     }
 
+    // Used only by caselog-solo.html's selfLog collection (see below) —
+    // a category entry is either a first-of-kind control (trend: null,
+    // no note) or a better/worse with a >=10-char note, or a same with
+    // no note at all.
+    function validSelfLogCategories(c) {
+      return c.keys().hasOnly(['ps','analytical','comm','biz'])
+        && c.keys().hasAll(['ps','analytical','comm','biz'])
+        && validSelfLogCat(c.ps) && validSelfLogCat(c.analytical)
+        && validSelfLogCat(c.comm) && validSelfLogCat(c.biz);
+    }
+    function validSelfLogCat(v) {
+      return v.keys().hasOnly(['trend','note'])
+        && (v.trend == null || v.trend == 'better' || v.trend == 'same' || v.trend == 'worse')
+        && ((v.trend == 'better' || v.trend == 'worse')
+            ? (v.get('note', null) is string && v.get('note','').size() >= 10)
+            : !('note' in v));
+    }
+
     // ---------- public roster (no scores in here) ----------
     // Seeded and edited only via scripts/seed.mjs (Admin SDK) or the
     // Firebase console, which bypass rules entirely — hence write: false
@@ -117,6 +135,40 @@ service cloud.firestore {
         && request.resource.data.menteeId == resource.data.menteeId;
       allow get: if hasSession() && resource.data.mentorId == sess().mentorId;
       allow list, delete: if isAdmin();
+    }
+
+    // ---------- caselog-solo: mentee self-tracking (relative trend only) ----------
+    // A separate, intentionally simpler tool (caselog-solo.html): no
+    // absolute score, no mentor counterpart, no blind entry, no link to
+    // cases/evaluations/selfEvaluations. A mentee logs whether each
+    // category felt better/same/worse than their own most recent logged
+    // entry for that category. Nothing here is comparable to
+    // casebook.html's 1-10 scores — keep it that way.
+    match /selfLog/{entryId} {
+      allow create: if request.resource.data.keys().hasOnly(
+            ['menteeId','caseName','date','categories','createdAt'])
+        && request.resource.data.keys().hasAll(
+            ['menteeId','caseName','date','categories','createdAt'])
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.caseName is string
+        && request.resource.data.caseName.size() <= 120
+        && request.resource.data.date is string
+        && exists(/databases/$(database)/documents/mentees/$(request.resource.data.menteeId))
+        && validSelfLogCategories(request.resource.data.categories);
+
+      // No login, so "your own entries" means "the name you clicked" —
+      // the same soft trust boundary already accepted for `cases` and
+      // the mentee picker elsewhere in this project; a single get() is
+      // harmless regardless (no score to protect). Rules cannot inspect
+      // which field/value a list query filtered by (request.query.filters
+      // is not available in this rules runtime, confirmed against the
+      // emulator), only its limit — so this is capped at 50 rather than
+      // fully unconstrained like `cases`, but is not truly scoped to
+      // "your own menteeId" at the rules level. See README for why this
+      // is accepted rather than half-built with App Check.
+      allow get: if true;
+      allow list: if isAdmin() || request.query.limit <= 50;
+      allow update, delete: if isAdmin();
     }
 
     // ---------- mentor-authored evaluations ----------
