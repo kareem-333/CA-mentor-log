@@ -92,6 +92,33 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ---------- cross-pod access grants ----------
+    // A mentor scoring a mentee outside their own pod has no read path
+    // to that mentee's evaluations by default (pod-scoped below). This
+    // is the mechanism that opens one: created the moment a mentor
+    // selects that mentee to case (before they've necessarily scored
+    // anything), it lets them see the mentee's mentor-scored trend for
+    // context. It is scoped to evaluations only — selfEvaluations stays
+    // primary-mentor-only regardless, since blind entry there is about
+    // the mentee's own self-perception, not pod boundaries. Doc ID
+    // binds it to exactly one (mentor, mentee) pair; "update" lets the
+    // same mentor re-affirm/no-op an existing grant (selecting the same
+    // mentee again is not a new document).
+    match /crossPodAccess/{id} {
+      allow create: if hasSession()
+        && id == sess().mentorId + '_' + request.resource.data.menteeId
+        && request.resource.data.keys().hasOnly(['mentorId','menteeId'])
+        && request.resource.data.keys().hasAll(['mentorId','menteeId'])
+        && request.resource.data.mentorId == sess().mentorId
+        && exists(/databases/$(database)/documents/mentees/$(request.resource.data.menteeId));
+      allow update: if hasSession()
+        && resource.data.mentorId == sess().mentorId
+        && request.resource.data.mentorId == sess().mentorId
+        && request.resource.data.menteeId == resource.data.menteeId;
+      allow get: if hasSession() && resource.data.mentorId == sess().mentorId;
+      allow list, delete: if isAdmin();
+    }
+
     // ---------- mentor-authored evaluations ----------
     // Doc ID is deterministic (caseId_mentor_scorerId): one score per
     // (case, scorer) pair, and a repeat attempt is an "update" against a
@@ -107,11 +134,15 @@ service cloud.firestore {
              ['caseId','menteeId','primaryMentorId','scorerId','source','scores','date','caseName','createdAt'])
         && validScores(request.resource.data)
         && refsOk(request.resource.data);
-      // Pod-scoped: a list query MUST include where('primaryMentorId','==',<own mentorId>)
-      // or Firestore rejects it outright — it cannot verify an
-      // unconstrained query stays inside the rule.
+      // Pod-scoped OR cross-pod-granted: a list query needs
+      // where('primaryMentorId','==',<own mentorId>) or
+      // where('menteeId','==',<a mentee you hold a grant for>) —
+      // Firestore statically checks the query's equality filter against
+      // the matching branch below, so either shape is provable; an
+      // unconstrained query is rejected outright.
       allow read: if isAdmin()
-        || (hasSession() && resource.data.primaryMentorId == sess().mentorId);
+        || (hasSession() && resource.data.primaryMentorId == sess().mentorId)
+        || (hasSession() && exists(/databases/$(database)/documents/crossPodAccess/$(sess().mentorId + '_' + resource.data.menteeId)));
       allow update, delete: if isAdmin();
     }
 

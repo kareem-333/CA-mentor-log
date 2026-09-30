@@ -23,6 +23,7 @@ const MENTOR_B = 'mentor-b';       // non-admin, primary mentor of MENTEE_B (dif
 const MENTOR_ADMIN = 'mentor-admin';
 const MENTEE_A = 'mentee-a';
 const MENTEE_B = 'mentee-b';
+const MENTEE_C = 'mentee-c';        // also MENTOR_B's pod, for testing a grant doesn't leak to an ungranted mentee
 const TOKEN_A = 'token-a-0000000000000000000000';
 const TOKEN_B = 'token-b-0000000000000000000000';
 const TOKEN_ADMIN = 'token-admin-000000000000000';
@@ -59,6 +60,7 @@ async function seedBaseFixtures() {
     const db = ctx.firestore();
     await setDoc(doc(db, 'mentees', MENTEE_A), { name: 'Mentee A', track: 'FT', primaryMentorId: MENTOR_A, podId: 'pod-a' });
     await setDoc(doc(db, 'mentees', MENTEE_B), { name: 'Mentee B', track: 'FT', primaryMentorId: MENTOR_B, podId: 'pod-b' });
+    await setDoc(doc(db, 'mentees', MENTEE_C), { name: 'Mentee C', track: 'FT', primaryMentorId: MENTOR_B, podId: 'pod-b' });
     await setDoc(doc(db, 'mentors', MENTOR_A), { name: 'Mentor A', podId: 'pod-a' });
     await setDoc(doc(db, 'mentors', MENTOR_B), { name: 'Mentor B', podId: 'pod-b' });
     await setDoc(doc(db, 'mentors', MENTOR_ADMIN), { name: 'Admin Mentor', podId: 'pod-a' });
@@ -293,6 +295,69 @@ describe('mentor', () => {
     await assertFails(deleteDoc(doc(dbA, 'evaluations', `${CASE_A1}_mentor_${MENTOR_A}`)));
     await assertFails(updateDoc(doc(dbA, 'cases', CASE_A1), { caseName: 'edited' }));
     await assertFails(deleteDoc(doc(dbA, 'mentees', MENTEE_A)));
+  });
+});
+
+// ============================================================
+// Cross-pod access grants
+// ============================================================
+describe('cross-pod access', () => {
+  it('a mentor can grant themselves access to a mentee outside their pod', async () => {
+    const dbA = (await createSession(UID_A, MENTOR_A, TOKEN_A, false)).firestore();
+    await assertSucceeds(setDoc(doc(dbA, 'crossPodAccess', `${MENTOR_A}_${MENTEE_B}`),
+      { mentorId: MENTOR_A, menteeId: MENTEE_B }));
+  });
+
+  it('cannot grant access claiming a different mentorId, a nonexistent mentee, a mismatched doc id, or extra keys', async () => {
+    const dbA = (await createSession(UID_A, MENTOR_A, TOKEN_A, false)).firestore();
+    await assertFails(setDoc(doc(dbA, 'crossPodAccess', `${MENTOR_B}_${MENTEE_B}`),
+      { mentorId: MENTOR_B, menteeId: MENTEE_B })); // claiming someone else's mentorId
+    await assertFails(setDoc(doc(dbA, 'crossPodAccess', `${MENTOR_A}_nonexistent-mentee`),
+      { mentorId: MENTOR_A, menteeId: 'nonexistent-mentee' }));
+    await assertFails(setDoc(doc(dbA, 'crossPodAccess', 'wrong-id'),
+      { mentorId: MENTOR_A, menteeId: MENTEE_B }));
+    await assertFails(setDoc(doc(dbA, 'crossPodAccess', `${MENTOR_A}_${MENTEE_B}`),
+      { mentorId: MENTOR_A, menteeId: MENTEE_B, extra: 'nope' }));
+  });
+
+  it("a mentor can re-affirm their own existing grant, but cannot change its menteeId or update another mentor's grant", async () => {
+    const dbA = (await createSession(UID_A, MENTOR_A, TOKEN_A, false)).firestore();
+    await assertSucceeds(setDoc(doc(dbA, 'crossPodAccess', `${MENTOR_A}_${MENTEE_B}`),
+      { mentorId: MENTOR_A, menteeId: MENTEE_B }));
+    // doc now exists, so this re-set is an "update" against the same grant
+    await assertSucceeds(setDoc(doc(dbA, 'crossPodAccess', `${MENTOR_A}_${MENTEE_B}`),
+      { mentorId: MENTOR_A, menteeId: MENTEE_B }));
+    // cannot repoint an existing grant at a different mentee
+    await assertFails(setDoc(doc(dbA, 'crossPodAccess', `${MENTOR_A}_${MENTEE_B}`),
+      { mentorId: MENTOR_A, menteeId: MENTEE_A }));
+
+    const dbB = (await createSession(UID_B, MENTOR_B, TOKEN_B, false)).firestore();
+    await assertFails(setDoc(doc(dbB, 'crossPodAccess', `${MENTOR_A}_${MENTEE_B}`),
+      { mentorId: MENTOR_A, menteeId: MENTEE_B }));
+  });
+
+  it('after granting access, a mentor can read that mentee\'s evaluations via a menteeId-scoped query, but not unconstrained, and not for a different ungranted mentee', async () => {
+    const dbA = (await createSession(UID_A, MENTOR_A, TOKEN_A, false)).firestore();
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'evaluations', `${CASE_B1}_mentor_${MENTOR_B}`),
+        mentorEvalPayload({ caseId: CASE_B1, menteeId: MENTEE_B, primaryMentorId: MENTOR_B, scorerId: MENTOR_B }));
+    });
+
+    // no grant yet: the menteeId-scoped query is rejected
+    await assertFails(getDocs(query(collection(dbA, 'evaluations'), where('menteeId', '==', MENTEE_B))));
+
+    await assertSucceeds(setDoc(doc(dbA, 'crossPodAccess', `${MENTOR_A}_${MENTEE_B}`),
+      { mentorId: MENTOR_A, menteeId: MENTEE_B }));
+
+    // now the scoped query succeeds and returns Mentor B's evaluation for Mentee B
+    const snap = await assertSucceeds(getDocs(query(collection(dbA, 'evaluations'), where('menteeId', '==', MENTEE_B))));
+    if (snap.size !== 1) throw new Error(`expected 1 evaluation for MENTEE_B, got ${snap.size}`);
+
+    // an unconstrained read is still rejected even with a grant in hand
+    await assertFails(getDocs(collection(dbA, 'evaluations')));
+
+    // the grant is scoped to MENTEE_B only — it must not leak to MENTEE_C, who has no grant
+    await assertFails(getDocs(query(collection(dbA, 'evaluations'), where('menteeId', '==', MENTEE_C))));
   });
 });
 

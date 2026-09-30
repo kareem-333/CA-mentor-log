@@ -1279,12 +1279,17 @@
     } else if (state.overlay === 'pickMentee'){
       root.innerHTML = pickMenteeModalHTML();
     } else if (state.overlay.type === 'newCase'){
-      root.innerHTML = newCaseModalHTML(state.overlay.menteeId, state.overlay.source, state.overlay.availableCases);
+      root.innerHTML = newCaseModalHTML(state.overlay.menteeId, state.overlay.source, state.overlay.availableCases, state.overlay.menteeHistory);
     }
     document.body.appendChild(root);
 
     if (state.overlay === 'pickMentee') wirePickMenteeSearch(root);
-    if (state.overlay && state.overlay.type === 'newCase') wireCaseForm(root);
+    if (state.overlay && state.overlay.type === 'newCase'){
+      wireCaseForm(root);
+      if (state.overlay.menteeHistory && state.overlay.menteeHistory.length){
+        drawChart(state.overlay.menteeHistory, 'caseModalChartWrap');
+      }
+    }
   }
 
   function pickMenteeModalHTML(){
@@ -1333,11 +1338,17 @@
    */
   function openNewCaseOverlay(menteeId, source){
     if (!state.db) return;
+    var mentee = menteeById(menteeId);
+    var isOwnPod = !!(mentee && mentee.primaryMentorId === state.mentorId);
     var alreadyScoredCaseIds = source === 'mentor'
       ? podEvalsForMentee(menteeId).filter(function(e){ return e.scorerId === state.mentorId && e.caseId; }).map(function(e){ return e.caseId; })
       : []; // mentee mode has no local read of selfEvaluations to filter against — handled at write time instead
 
-    state.db.collection('cases').where('menteeId','==',menteeId).orderBy('date','desc').limit(50).get().then(function(snap){
+    Promise.all([
+      state.db.collection('cases').where('menteeId','==',menteeId).orderBy('date','desc').limit(50).get(),
+      loadMenteeHistory(menteeId, source, isOwnPod)
+    ]).then(function(results){
+      var snap = results[0], history = results[1];
       var all = snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); });
       if (source === 'self'){
         var cutoff = new Date();
@@ -1346,21 +1357,51 @@
         all = all.filter(function(c){ return c.date >= cutoffISO; });
       }
       var eligible = all.filter(function(c){ return alreadyScoredCaseIds.indexOf(c.id) === -1; });
-      state.overlay = { type:'newCase', menteeId: menteeId, source: source, availableCases: eligible };
+      state.overlay = { type:'newCase', menteeId: menteeId, source: source, availableCases: eligible, menteeHistory: history };
       render();
     }).catch(function(err){
       console.error('load cases failed', err);
-      state.overlay = { type:'newCase', menteeId: menteeId, source: source, availableCases: [] };
+      state.overlay = { type:'newCase', menteeId: menteeId, source: source, availableCases: [], menteeHistory: null };
       render();
     });
   }
 
-  function newCaseModalHTML(menteeId, source, availableCases){
+  /**
+   * A mentor's live `podEvaluations` subscription only covers their own
+   * pod, so scoring a mentee outside it (via the cross-pod search) has
+   * no local trend data to show. This grants that mentor standing
+   * read-access to that one mentee's evaluations (a crossPodAccess doc —
+   * see firestore.rules) and then fetches them directly, so the trend
+   * that shows up here is real history, not a locally-empty chart.
+   */
+  function loadMenteeHistory(menteeId, source, isOwnPod){
+    if (source !== 'mentor') return Promise.resolve(null);
+    if (isOwnPod) return Promise.resolve(podEvalsForMentee(menteeId));
+    var grantId = state.mentorId + '_' + menteeId;
+    return state.db.collection('crossPodAccess').doc(grantId)
+      .set({ mentorId: state.mentorId, menteeId: menteeId })
+      .then(function(){
+        return state.db.collection('evaluations').where('menteeId','==',menteeId).orderBy('date','desc').limit(200).get();
+      })
+      .then(function(snap){ return snap.docs.map(function(d){ return Object.assign({id:d.id}, d.data()); }); })
+      .catch(function(err){ console.error('cross-pod history fetch failed', err); return []; });
+  }
+
+  function newCaseModalHTML(menteeId, source, availableCases, menteeHistory){
     var mentee = menteeById(menteeId);
     var today = todayISO();
     var title = source === 'self' ? 'Log your case' : 'Log a case &mdash; '+esc(mentee ? mentee.name : '');
     var cases = availableCases || [];
     var defaultExisting = cases.length > 0;
+
+    var trendHTML = '';
+    if (source === 'mentor' && mentee && menteeHistory !== null && menteeHistory !== undefined){
+      trendHTML = '<div class="card chart-card" style="margin-bottom:22px;">'
+        + '<div class="card-title">'+esc(mentee.name)+'&rsquo;s performance over time</div>'
+        + statBlockHTML(menteeHistory)
+        + chartOrEmptyHTML(menteeHistory, 'caseModalChartWrap', mentee.name)
+        + '</div>';
+    }
 
     var caseModeHTML = cases.length === 0 ? '' :
       '<div class="case-mode-toggle" id="caseModeToggle">'
@@ -1410,6 +1451,7 @@
       + '<div class="modal-head" style="border-bottom:1px solid var(--border);"><h2>'+title+'</h2><button class="close-x" data-action="close-overlay">&times;</button></div>'
       + '<form id="caseForm">'
       + '<div class="modal-body" style="padding-top:20px;">'
+      + trendHTML
       + caseModeHTML
       + existingFieldHTML
       + newFieldsHTML
