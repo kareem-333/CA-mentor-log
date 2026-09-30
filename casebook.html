@@ -1283,6 +1283,7 @@
     }
     document.body.appendChild(root);
 
+    if (state.overlay === 'pickMentee') wirePickMenteeSearch(root);
     if (state.overlay && state.overlay.type === 'newCase') wireCaseForm(root);
   }
 
@@ -1292,13 +1293,35 @@
       + '<div class="modal-head"><h2>Score a session</h2><button class="close-x" data-action="close-overlay">&times;</button></div>'
       + '<div class="modal-body">'
       + '<p class="hint" style="margin-top:0;">Pick any mentee to score a case for them, even outside your pod.</p>'
-      + '<div class="mentor-grid">'
+      + '<div class="field"><input type="text" id="menteeSearchInput" placeholder="Search by name&hellip;" autocomplete="off"></div>'
+      + '<div class="mentor-grid" id="menteeSearchGrid">'
       + list.map(function(m){
-          return '<button class="mentor-chip" data-action="pick-mentee-for-scoring" data-id="'+esc(m.id)+'">'+esc(m.name)+'</button>';
+          var mentor = mentorById(m.primaryMentorId);
+          var search = (m.name + ' ' + (mentor ? mentor.name : '')).toLowerCase();
+          return '<button class="mentor-chip" data-action="pick-mentee-for-scoring" data-id="'+esc(m.id)+'" data-search="'+esc(search)+'">'+esc(m.name)+'</button>';
         }).join('')
       + '</div>'
+      + '<p class="empty-note" id="menteeSearchEmpty" hidden>No matches &mdash; try their pod lead’s name instead.</p>'
       + '</div>'
       + '</div>';
+  }
+
+  function wirePickMenteeSearch(root){
+    var input = root.querySelector('#menteeSearchInput');
+    var grid = root.querySelector('#menteeSearchGrid');
+    var empty = root.querySelector('#menteeSearchEmpty');
+    if (!input || !grid) return;
+    input.addEventListener('input', function(){
+      var q = input.value.trim().toLowerCase();
+      var visible = 0;
+      grid.querySelectorAll('.mentor-chip').forEach(function(chip){
+        var match = !q || chip.getAttribute('data-search').indexOf(q) !== -1;
+        chip.hidden = !match;
+        if (match) visible++;
+      });
+      if (empty) empty.hidden = visible !== 0;
+    });
+    input.focus();
   }
 
   /**
