@@ -1,12 +1,27 @@
 #!/usr/bin/env node
 // Seeds mentees/mentors and issues mentor bearer tokens via the Admin SDK.
-// Run locally only — this needs a service-account key, never commit one.
+// Run locally only.
 //
 //   node scripts/seed.mjs
 //   node scripts/seed.mjs --rotate <mentorId>
 //
+// Authenticates one of two ways:
+//   - Application Default Credentials from your own Google account — no key
+//     file at all. One-time setup:
+//       gcloud auth application-default login
+//       gcloud auth application-default set-quota-project <FIREBASE_PROJECT_ID>
+//     Your account needs Editor (or Datastore/Firebase admin) on the
+//     project. This is the default; just set FIREBASE_PROJECT_ID.
+//   - A service-account key file, if you'd rather use one: set
+//     SERVICE_ACCOUNT_PATH to its path (never commit it).
+//
 // Env vars:
-//   SERVICE_ACCOUNT_PATH   path to the service-account JSON (default: ./serviceAccount.json)
+//   FIREBASE_PROJECT_ID    required when using Application Default
+//                          Credentials (ADC doesn't know the project on its
+//                          own); read from the key file automatically when
+//                          SERVICE_ACCOUNT_PATH is set instead.
+//   SERVICE_ACCOUNT_PATH   path to a service-account JSON key, if you're
+//                          using one instead of ADC.
 //   CASEBOOK_HOST          base URL casebook.html is served from, no trailing slash
 //                          (default: https://REPLACE_WITH_YOUR_HOST)
 //
@@ -16,7 +31,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
-import { initializeApp, cert } from 'firebase-admin/app';
+import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 function parseCsv(text) {
@@ -77,15 +92,25 @@ async function main() {
   const rotateIdx = args.indexOf('--rotate');
   const rotateMentorId = rotateIdx !== -1 ? args[rotateIdx + 1] : null;
 
-  const serviceAccountPath = process.env.SERVICE_ACCOUNT_PATH || 'serviceAccount.json';
-  if (!existsSync(serviceAccountPath)) {
-    console.error(`Missing service-account key at ${serviceAccountPath}.`);
-    console.error('Download one from Firebase console > Project settings > Service accounts,');
-    console.error('save it locally (it is gitignored), and re-run, or set SERVICE_ACCOUNT_PATH.');
-    process.exit(1);
+  const serviceAccountPath = process.env.SERVICE_ACCOUNT_PATH;
+  if (serviceAccountPath) {
+    if (!existsSync(serviceAccountPath)) {
+      console.error(`No service-account key at ${serviceAccountPath}.`);
+      process.exit(1);
+    }
+    const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
+    initializeApp({ credential: cert(serviceAccount) });
+  } else {
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    if (!projectId) {
+      console.error('Set FIREBASE_PROJECT_ID (Application Default Credentials don\'t know the');
+      console.error('project on their own), and make sure you\'ve run:');
+      console.error('  gcloud auth application-default login');
+      console.error('Or set SERVICE_ACCOUNT_PATH to use a service-account key file instead.');
+      process.exit(1);
+    }
+    initializeApp({ credential: applicationDefault(), projectId });
   }
-  const serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
-  initializeApp({ credential: cert(serviceAccount) });
   const db = getFirestore();
   const host = (process.env.CASEBOOK_HOST || 'https://REPLACE_WITH_YOUR_HOST').replace(/\/+$/, '');
 
