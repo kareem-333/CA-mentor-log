@@ -279,13 +279,21 @@
   .case-mode-toggle{ display:flex; gap:18px; flex-wrap:wrap; margin: 0 0 16px; font-size:0.85rem; }
   .case-mode-toggle label{ display:flex; align-items:center; gap:6px; font-weight:500; color: var(--ink); margin:0; }
 
+  .rubric-banner{
+    font-size:0.82rem; line-height:1.5; color: var(--ink-muted);
+    background: var(--accent-soft); border-radius:10px; padding:12px 14px; margin: 0 0 16px;
+  }
+  .rubric-banner b{ color: var(--ink); }
+
   .rubric-hint{ font-size:0.78rem; color: var(--ink-faint); margin-bottom:10px; }
   .cat-slider-row{ display:flex; align-items:center; gap:12px; }
   .cat-slider-row input[type=range]{ flex:1; accent-color: var(--accent); }
   .cat-slider-row .val{ font-family:"IBM Plex Mono"; font-weight:600; min-width:28px; text-align:right; }
   .na-toggle{ display:flex; align-items:center; gap:5px; font-size:0.78rem; font-weight:500; color: var(--ink-muted); white-space:nowrap; margin:0; }
   .na-toggle input{ margin:0; }
-  .anchor-hint{ font-size:0.72rem; color: var(--ink-faint); font-style:italic; margin-top:8px; }
+  .anchor-list{ display:flex; flex-direction:column; gap:4px; margin-top:10px; }
+  .anchor-item{ display:flex; gap:9px; font-size:0.78rem; color: var(--ink-faint); line-height:1.4; }
+  .anchor-item b{ color: var(--ink-muted); min-width:14px; flex-shrink:0; }
   .rationale-row{ margin: 12px 0 2px; padding:10px 12px; background: var(--surface-2); border-radius:8px; }
   .rationale-row label{ margin-bottom:6px; }
   .block-msg{ font-size:0.78rem; color: var(--low); margin-right:auto; align-self:center; }
@@ -364,8 +372,11 @@
 
   // `metrics` render as rubric hint text under each category's single
   // slider (they are no longer individually scored). `anchors` are
-  // placeholder criterion text for the 3/5/7/9 scale points — the
-  // program leads write the real wording.
+  // criterion text at the 3/5/7/9 scale points, scored against a real
+  // interview bar, not against how far into the program this is (see
+  // the rubric banner in newCaseModalHTML): 8+ means interview-ready
+  // today, full stop — the same case gets the same score in week 1 or
+  // week 10, so the trend line is what shows the progress.
   var CATEGORIES = [
     { key:'ps', label:'Problem Solving & Framework', short:'Problem solving', color:'var(--series-ps)',
       metrics:[
@@ -374,7 +385,12 @@
         {key:'creativity', label:'Creativity'},
         {key:'mece', label:'MECE'}
       ],
-      anchors: { 3:'TODO', 5:'TODO', 7:'TODO', 9:'TODO' }
+      anchors: {
+        3: 'No real framework — jumps to solutions or restates the prompt instead of structuring it.',
+        5: 'Structure is present but generic or overlapping; needs real-time correction to hold up.',
+        7: 'Solid structure covers the case; a gap or two, but recovers without help.',
+        9: 'Tight, MECE, tailored to this prompt; drives the whole case without prompting.'
+      }
     },
     { key:'analytical', label:'Analytical Skills', short:'Analytical', color:'var(--series-an)',
       metrics:[
@@ -383,7 +399,12 @@
         {key:'calculations', label:'Calculations'},
         {key:'detail', label:'Attention to detail'}
       ],
-      anchors: { 3:'TODO', 5:'TODO', 7:'TODO', 9:'TODO' }
+      anchors: {
+        3: 'Math errors go uncaught, or an exhibit is misread in a way that changes the answer.',
+        5: 'Calculations work but are slow or need rework; misses a detail at least once.',
+        7: 'Gets to the right number with minor slips; exhibit reads are generally accurate.',
+        9: 'Reads exhibits correctly the first time, math is clean and fast, catches the "so what."'
+      }
     },
     { key:'comm', label:'Communication & Delivery', short:'Communication', color:'var(--series-comm)',
       metrics:[
@@ -392,7 +413,12 @@
         {key:'adapts', label:'Adapts to feedback'},
         {key:'guides', label:'Guides you through their thinking'}
       ],
-      anchors: { 3:'TODO', 5:'TODO', 7:'TODO', 9:'TODO' }
+      anchors: {
+        3: 'Hard to follow; works through the case silently or without narrating the thinking.',
+        5: 'Understandable but rambling or passive — you’re doing more steering than they are.',
+        7: 'Clear and organized; mostly leads the conversation, occasionally needs a prompt to synthesize.',
+        9: 'Talks like a real consultant — structured, confident, checks in without being asked to.'
+      }
     },
     { key:'biz', label:'Business Judgment & Recommendation', short:'Business judgment', color:'var(--series-biz)',
       metrics:[
@@ -400,7 +426,12 @@
         {key:'relevance', label:'Relevance'},
         {key:'risks', label:'Risks & trade-offs'}
       ],
-      anchors: { 3:'TODO', 5:'TODO', 7:'TODO', 9:'TODO' }
+      anchors: {
+        3: 'No clear recommendation, or one that contradicts the analysis.',
+        5: 'Recommendation is reasonable but generic or loosely tied to what was actually found.',
+        7: 'Sound recommendation grounded in the numbers; trade-offs mentioned but not fully explored.',
+        9: 'Decisive, tied directly to the analysis, and names the risk that would change the call.'
+      }
     }
   ];
 
@@ -434,10 +465,13 @@
   function fmt1(n){ return (Math.round(n*10)/10).toFixed(1); }
   function fmt1OrDash(n){ return (n === null || n === undefined) ? '&mdash;' : fmt1(n); }
 
+  // Matches the rubric banner in newCaseModalHTML: 8+ is the
+  // interview-ready bar, on an absolute scale — not relative to how
+  // far into the program this score was logged.
   function scoreBand(n){
-    if (n >= 7.5) return { cls:'good', label:'Strong' };
-    if (n >= 5.5) return { cls:'warn', label:'Solid' };
-    return { cls:'low', label:'Developing' };
+    if (n >= 8) return { cls:'good', label:'Interview ready' };
+    if (n >= 5) return { cls:'warn', label:'Developing' };
+    return { cls:'low', label:'Needs work' };
   }
   function badgeHTML(n){
     if (n === null || n === undefined) return '<span class="badge badge-none"><span class="dot"></span>&mdash;</span>';
@@ -1330,7 +1364,9 @@
 
     var groups = CATEGORIES.map(function(c){
       var rubric = c.metrics.map(function(m){ return esc(m.label); }).join(' &middot; ');
-      var anchorText = [3,5,7,9].map(function(n){ return n+': '+esc(c.anchors[n]); }).join(' &middot; ');
+      var anchorList = [9,7,5,3].map(function(n){
+        return '<div class="anchor-item"><b class="num">'+n+'</b><span>'+esc(c.anchors[n])+'</span></div>';
+      }).join('');
       return '<fieldset data-cat="'+c.key+'">'
         + '<legend><span class="sw" style="background:'+c.color+'"></span>'+c.label+'</legend>'
         + '<div class="rubric-hint">'+rubric+'</div>'
@@ -1339,7 +1375,7 @@
         + '<output class="val num" id="val_'+c.key+'">5</output>'
         + '<label class="na-toggle"><input type="checkbox" id="na_'+c.key+'"> Not observed</label>'
         + '</div>'
-        + '<div class="anchor-hint">'+anchorText+'</div>'
+        + '<div class="anchor-list">'+anchorList+'</div>'
         + '<div class="rationale-row" id="rationale_'+c.key+'" hidden>'
         + '<label for="rat_'+c.key+'" id="ratLabel_'+c.key+'">Why a 5?</label>'
         + '<textarea id="rat_'+c.key+'" placeholder="Required for scores outside 4–6 — at least 10 characters."></textarea>'
@@ -1354,7 +1390,7 @@
       + caseModeHTML
       + existingFieldHTML
       + newFieldsHTML
-      + '<p class="hint">Score each category 1 (needs work) &ndash; 10 (exceptional). Scores of 1&ndash;3 or 7&ndash;10 need a short written reason.</p>'
+      + '<div class="rubric-banner">Score against a real interview, not against how far into the program this is. <b>8 or above means interview-ready today</b> — if this were the actual case, they’d move forward. Score the same performance the same way in week 1 or week 10; the trend line is what should show the progress, not a shifting bar. Scores of 1&ndash;3 or 7&ndash;10 need a short written reason.</div>'
       + groups
       + '<div class="field"><label for="caseNotes">Notes</label><textarea id="caseNotes" placeholder="What stood out? Structure, drivers, recommendation delivery&hellip;"></textarea></div>'
       + '</div>'
