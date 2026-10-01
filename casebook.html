@@ -1365,9 +1365,6 @@
     if (!state.db) return;
     var mentee = menteeById(menteeId);
     var isOwnPod = !!(mentee && mentee.primaryMentorId === state.mentorId);
-    var alreadyScoredCaseIds = source === 'mentor'
-      ? podEvalsForMentee(menteeId).filter(function(e){ return e.scorerId === state.mentorId && e.caseId; }).map(function(e){ return e.caseId; })
-      : []; // mentee mode has no local read of selfEvaluations to filter against — handled at write time instead
 
     Promise.all([
       state.db.collection('cases').where('menteeId','==',menteeId).orderBy('date','desc').limit(50).get(),
@@ -1381,6 +1378,19 @@
         var cutoffISO = isoFromDate(cutoff);
         all = all.filter(function(c){ return c.date >= cutoffISO; });
       }
+      // `history` is podEvalsForMentee for an own-pod mentee (every eval
+      // for them, any scorer, via the live primaryMentorId subscription)
+      // or a direct menteeId-scoped fetch for a cross-pod one (see
+      // loadMenteeHistory) — either way it is a complete, correct list of
+      // this mentee's evaluations, so filtering it by scorerId is safe.
+      // Using podEvaluations directly here, as before, was the bug: that
+      // subscription is scoped to where('primaryMentorId','==',own id),
+      // which a cross-pod mentee's evaluations never match, so "already
+      // scored by me" silently came back empty and let a mentor re-pick
+      // (and fail to re-save) a case they'd already scored.
+      var alreadyScoredCaseIds = (source === 'mentor' && history)
+        ? history.filter(function(e){ return e.scorerId === state.mentorId && e.caseId; }).map(function(e){ return e.caseId; })
+        : []; // mentee mode has no local read of selfEvaluations to filter against — handled at write time instead
       var eligible = all.filter(function(c){ return alreadyScoredCaseIds.indexOf(c.id) === -1; });
       state.overlay = { type:'newCase', menteeId: menteeId, source: source, availableCases: eligible, menteeHistory: history };
       render();
